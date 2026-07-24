@@ -1,0 +1,50 @@
+---
+name: unit-test-component-run-on-pr
+on:
+  pull_request: # Run tests on all pull requests, except those only touching CI/config files
+    paths-ignore:
+      - '.github/**'
+
+concurrency:
+  group: "${{ github.workflow }} @ ${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  unit-test-companion:
+    name: Companion - Typecheck, unit tests and build
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build bundle
+        run: npm run build
+
+      # Catch Dockerfile breakage in the PR instead of after merge - the image
+      # build also re-runs typecheck/tests inside the build stage
+      - name: Build Docker image
+        run: docker build -t pr-check .
+
+      - name: Smoke test the image
+        run: |
+          docker run -d --name smoke -e PANEL_ENABLED=true -e PANEL_PASSWORD=smoke-test pr-check
+          sleep 5
+          docker exec smoke node -e "fetch('http://127.0.0.1:8213/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+          docker rm -f smoke
