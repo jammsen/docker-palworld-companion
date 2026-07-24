@@ -61,6 +61,34 @@ export interface RestApiConfig {
 
 export const MIN_DISCORD_INTERVAL_SECONDS = 15;
 
+// Shipped emoji defaults (previously ENV defaults of the bundled gameserver
+// image). Semantics: variable unset -> default token, set to empty -> neutral
+// marker/unicode fallback. CAVEAT: the tokens render from the maintainer's
+// Discord server - see ENV_VARS.md for uploading your own.
+const DEFAULT_PLATFORM_EMOJI: Record<string, string> = {
+  steam: "<:steam:1528444768697192488>",
+  xbox: "<:xbox:1528444823835771020>",
+  ps5: "<:ps5:1528444879695515748>",
+  mac: "<:mac:1528444932132700332>",
+};
+
+// The icons/modern-slate set
+const DEFAULT_EVENT_EMOJI: Partial<Record<string, string>> = {
+  join: "<:pal_sl_join:1528897301907771460>",
+  leave: "<:pal_sl_leave:1528897336162648066>",
+  rename: "<:pal_sl_rename:1528897568212258976>",
+  online: "<:pal_sl_online:1528897465263067176>",
+  offline: "<:pal_sl_offline:1528897375215550644>",
+  starting: "<:pal_sl_starting:1528897750966599853>",
+  installing: "<:pal_sl_installing:1528897264519479570>",
+  updating: "<:pal_sl_updating:1528897841152393368>",
+  "updating-validate": "<:pal_sl_updatingvalidate:1528897869602492658>",
+  stopping: "<:pal_sl_stopping:1528897784508453025>",
+  restart: "<:pal_sl_restart:1528897601775210536>",
+  backup: "<:pal_sl_backup:1528897223025492132>",
+  settings: "<:pal_sl_settings:1528897681290956951>",
+};
+
 function envBool(value: string | undefined): boolean {
   return (value ?? "").toLowerCase() === "true";
 }
@@ -121,7 +149,7 @@ export function parseConfig(env: Record<string, string | undefined>): CompanionC
       }
       const platformEmoji: Partial<Record<string, string>> = {};
       for (const platform of ["steam", "xbox", "ps5", "mac"] as const) {
-        const value = env[`DISCORD_STATUS_EMOJI_${platform.toUpperCase()}`];
+        const value = env[`DISCORD_STATUS_EMOJI_${platform.toUpperCase()}`] ?? DEFAULT_PLATFORM_EMOJI[platform];
         if (!value) continue;
         if (/^<a?:\w+:\d+>$/.test(value)) {
           platformEmoji[platform] = value;
@@ -134,7 +162,7 @@ export function parseConfig(env: Record<string, string | undefined>): CompanionC
       const eventEmoji: Partial<Record<string, string>> = {};
       for (const type of ALL_EVENT_TYPES) {
         const key = `DISCORD_STATUS_EMOJI_EVENT_${type.toUpperCase().replaceAll("-", "_")}`;
-        const value = env[key];
+        const value = env[key] ?? DEFAULT_EVENT_EMOJI[type];
         if (!value) continue;
         if (/^<a?:\w+:\d+>$/.test(value)) {
           eventEmoji[type] = value;

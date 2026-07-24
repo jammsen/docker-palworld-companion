@@ -86,6 +86,23 @@ describe("parseConfig", () => {
     expect(config.warnings.some((w) => w.includes("EMOJI_EVENT_BACKUP"))).toBe(true);
   });
 
+  it("ships emoji token defaults; empty value opts out to the neutral fallback", () => {
+    const config = parseConfig({
+      DISCORD_STATUS_ENABLED: "true",
+      DISCORD_STATUS_WEBHOOK_URL: "https://discord.com/api/webhooks/1/abc",
+      DISCORD_STATUS_EMOJI_STEAM: "",
+      DISCORD_STATUS_EMOJI_EVENT_JOIN: "",
+    });
+    // Unset -> shipped default token (moved here from the old gameserver-image ENV block)
+    expect(config.discord?.platformEmoji.xbox).toBe("<:xbox:1528444823835771020>");
+    expect(config.discord?.eventEmoji.backup).toBe("<:pal_sl_backup:1528897223025492132>");
+    expect(config.discord?.eventEmoji["updating-validate"]).toBe("<:pal_sl_updatingvalidate:1528897869602492658>");
+    // Explicitly empty -> no token, neutral marker/unicode fallback, no warning
+    expect(config.discord?.platformEmoji.steam).toBeUndefined();
+    expect(config.discord?.eventEmoji.join).toBeUndefined();
+    expect(config.warnings.some((w) => w.includes("EMOJI"))).toBe(false);
+  });
+
   it("clamps the event amount to the stored-history range", () => {
     const base = { DISCORD_STATUS_ENABLED: "true", DISCORD_STATUS_WEBHOOK_URL: "https://discord.com/api/webhooks/1/abc" };
     expect(parseConfig({ ...base }).discord?.eventAmount).toBe(25);
