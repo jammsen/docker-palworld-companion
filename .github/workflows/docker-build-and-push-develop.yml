@@ -5,6 +5,12 @@ on:
     branches:
       - develop
 
+# The default GITHUB_TOKEN on new repos is read-only - packages:write is
+# needed to (create and) push the GHCR package
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   docker-build-companion-image:
     timeout-minutes: 15
