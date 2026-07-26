@@ -33,10 +33,6 @@ jobs:
             jammsen/palworld-companion
             ghcr.io/${{ github.repository }}
 
-      - name: Get short SHA
-        id: slug
-        run: echo "GIT_SHORT_SHA7=$(echo ${GITHUB_SHA} | cut -c1-7)" >> "$GITHUB_OUTPUT"
-
       # Typecheck, unit tests and the bundle build all run inside the image
       # build stage - a broken test fails the build before anything is pushed
       - name: Build the images
@@ -45,15 +41,12 @@ jobs:
           context: .
           push: false
           load: true
-          tags: |
-            ${{ steps.meta.outputs.tags }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/palworld-companion:${{ steps.slug.outputs.GIT_SHORT_SHA7 }}
-            ghcr.io/${{ secrets.DOCKERHUB_USERNAME }}/docker-palworld-companion:${{ steps.slug.outputs.GIT_SHORT_SHA7 }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Smoke test the image
         run: |
-          docker run -d --name smoke -e PANEL_ENABLED=true -e PANEL_PASSWORD=smoke-test "${{ secrets.DOCKERHUB_USERNAME }}/palworld-companion:${{ steps.slug.outputs.GIT_SHORT_SHA7 }}"
+          docker run -d --name smoke -e PANEL_ENABLED=true -e PANEL_PASSWORD=smoke-test "jammsen/palworld-companion:develop"
           sleep 5
           docker exec smoke node -e "fetch('http://127.0.0.1:8213/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
           docker rm -f smoke
@@ -76,8 +69,5 @@ jobs:
         with:
           context: .
           push: true
-          tags: |
-            ${{ steps.meta.outputs.tags }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/palworld-companion:${{ steps.slug.outputs.GIT_SHORT_SHA7 }}
-            ghcr.io/${{ secrets.DOCKERHUB_USERNAME }}/docker-palworld-companion:${{ steps.slug.outputs.GIT_SHORT_SHA7 }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
