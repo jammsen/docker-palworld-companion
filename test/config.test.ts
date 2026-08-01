@@ -51,13 +51,98 @@ describe("parseConfig", () => {
       DISCORD_STATUS_ENABLED: "true",
       WEBHOOK_URL: "https://discord.com/api/webhooks/1/abc",
     });
-    expect(config.discord?.webhookUrl).toBe("https://discord.com/api/webhooks/1/abc");
+    expect(config.discord?.mode).toBe("webhook");
+    expect(config.discord?.mode === "webhook" && config.discord.webhookUrl).toBe("https://discord.com/api/webhooks/1/abc");
   });
 
-  it("disables the Discord card without any webhook URL", () => {
+  it("selects bot mode when a token and a valid channel id are set", () => {
+    const config = parseConfig({
+      DISCORD_STATUS_ENABLED: "true",
+      DISCORD_BOT_TOKEN: "bot-secret",
+      DISCORD_STATUS_CHANNEL_ID: "123456789012345678",
+      DISCORD_LOGS_CHANNEL_ID: "223456789012345678",
+      DISCORD_ADMIN_CHANNEL_ID: "323456789012345678",
+      DISCORD_GUILD_ID: "423456789012345678",
+    });
+    expect(config.discord?.mode).toBe("bot");
+    if (config.discord?.mode !== "bot") throw new Error("expected bot mode");
+    expect(config.discord.channelId).toBe("123456789012345678");
+    expect(config.discord.logsChannelId).toBe("223456789012345678");
+    expect(config.discord.adminChannelId).toBe("323456789012345678");
+    expect(config.discord.guildId).toBe("423456789012345678");
+    expect(config.discord.presenceEnabled).toBe(true);
+    expect(config.discord.commandsEnabled).toBe(false);
+    expect(config.warnings.some((w) => w.includes("DISCORD"))).toBe(false);
+  });
+
+  it("falls back to webhook mode when the bot channel id is missing or invalid", () => {
+    const config = parseConfig({
+      DISCORD_STATUS_ENABLED: "true",
+      DISCORD_BOT_TOKEN: "bot-secret",
+      DISCORD_STATUS_CHANNEL_ID: "not-a-snowflake",
+      DISCORD_STATUS_WEBHOOK_URL: "https://discord.com/api/webhooks/1/abc",
+    });
+    expect(config.discord?.mode).toBe("webhook");
+    expect(config.warnings.some((w) => w.includes("DISCORD_STATUS_CHANNEL_ID"))).toBe(true);
+  });
+
+  it("prefers bot mode over a configured webhook URL, with a warning", () => {
+    const config = parseConfig({
+      DISCORD_STATUS_ENABLED: "true",
+      DISCORD_BOT_TOKEN: "bot-secret",
+      DISCORD_STATUS_CHANNEL_ID: "123456789012345678",
+      DISCORD_STATUS_WEBHOOK_URL: "https://discord.com/api/webhooks/1/abc",
+    });
+    expect(config.discord?.mode).toBe("bot");
+    expect(config.warnings.some((w) => w.includes("DISCORD_STATUS_WEBHOOK_URL is ignored"))).toBe(true);
+  });
+
+  it("warns when the live-card channel doubles as logs or admin channel", () => {
+    const config = parseConfig({
+      DISCORD_STATUS_ENABLED: "true",
+      DISCORD_BOT_TOKEN: "bot-secret",
+      DISCORD_STATUS_CHANNEL_ID: "123456789012345678",
+      DISCORD_LOGS_CHANNEL_ID: "123456789012345678",
+    });
+    expect(config.discord?.mode).toBe("bot");
+    expect(config.warnings.some((w) => w.includes("buried"))).toBe(true);
+    // Overlap between logs and admin alone is fine - no warning
+    const overlapOk = parseConfig({
+      DISCORD_STATUS_ENABLED: "true",
+      DISCORD_BOT_TOKEN: "bot-secret",
+      DISCORD_STATUS_CHANNEL_ID: "123456789012345678",
+      DISCORD_LOGS_CHANNEL_ID: "223456789012345678",
+      DISCORD_ADMIN_CHANNEL_ID: "223456789012345678",
+    });
+    expect(overlapOk.warnings.some((w) => w.includes("buried"))).toBe(false);
+  });
+
+  it("clamps the update interval to the mode-specific minimum", () => {
+    const webhook = parseConfig({
+      DISCORD_STATUS_ENABLED: "true",
+      DISCORD_STATUS_WEBHOOK_URL: "https://discord.com/api/webhooks/1/abc",
+      DISCORD_STATUS_UPDATE_INTERVAL: "5",
+    });
+    expect(webhook.discord?.updateIntervalSeconds).toBe(15);
+    const bot = parseConfig({
+      DISCORD_STATUS_ENABLED: "true",
+      DISCORD_BOT_TOKEN: "bot-secret",
+      DISCORD_STATUS_CHANNEL_ID: "123456789012345678",
+      DISCORD_STATUS_UPDATE_INTERVAL: "5",
+    });
+    expect(bot.discord?.updateIntervalSeconds).toBe(10);
+    expect(bot.discord?.mode === "bot" && parseConfig({
+      DISCORD_STATUS_ENABLED: "true",
+      DISCORD_BOT_TOKEN: "bot-secret",
+      DISCORD_STATUS_CHANNEL_ID: "123456789012345678",
+      DISCORD_STATUS_UPDATE_INTERVAL: "12",
+    }).discord?.updateIntervalSeconds).toBe(12);
+  });
+
+  it("disables the Discord card without any webhook URL or bot config", () => {
     const config = parseConfig({ DISCORD_STATUS_ENABLED: "true" });
     expect(config.discord).toBeNull();
-    expect(config.warnings.some((w) => w.includes("WEBHOOK_URL"))).toBe(true);
+    expect(config.warnings.some((w) => w.includes("disabling the Discord status card"))).toBe(true);
   });
 
   it("accepts valid custom platform emojis and rejects malformed ones", () => {

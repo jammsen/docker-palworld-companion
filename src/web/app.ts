@@ -1,4 +1,5 @@
 import { getConnInfo } from "@hono/node-server/conninfo";
+import { readFileSync } from "node:fs";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
@@ -13,12 +14,18 @@ import { AuthService, SESSION_COOKIE } from "./auth.js";
 import { enhanceJs } from "./enhance.js";
 import { availableLanguages, resolveLanguage, translator } from "./i18n.js";
 import { DashboardPage } from "./views/dashboard.js";
+import { DiscordPage, type BotGroupValues, type WebhookGroupValues } from "./views/discord.js";
 import { LoginPage } from "./views/login.js";
 import { PlayersPage } from "./views/players.js";
 import { SettingsPage } from "./views/settings.js";
 
-// Bundled at build time - no static file serving, no filesystem paths to resolve
-import styleCss from "../../public/style.css";
+// Stylesheet: inlined at build time by build.mjs (define, like COMPANION_VERSION);
+// `npm run dev` runs unbundled through tsx and reads the file from the repo instead
+declare const COMPANION_STYLE_CSS: string | undefined;
+const styleCss: string =
+  typeof COMPANION_STYLE_CSS === "string"
+    ? COMPANION_STYLE_CSS
+    : readFileSync(new URL("../../public/style.css", import.meta.url), "utf8");
 
 const SNAPSHOT_MAX_AGE_MS = 5_000;
 const LANG_COOKIE = "companion_lang";
@@ -28,7 +35,38 @@ export interface AppDeps {
   collector: MetricsCollector;
   settings: SettingsStore;
   client: PalworldClient;
+  /** Present when the Discord status card is enabled - powers the panel's Discord page */
+  discordSettings?: DiscordSettingsDeps;
+  /** Raw env snapshot for the Discord page's transparency view (inactive/off groups) */
+  discordEnv?: DiscordEnvView;
 }
+
+/** Built in index.ts from process.env - shows what WOULD apply, even for the inactive mode */
+export interface DiscordEnvView {
+  webhookUrl: string;
+  statusChannelId: string;
+  logsChannelId: string;
+  adminChannelId: string;
+  updateIntervalSeconds: string;
+  presenceEnabled: boolean;
+  commandsEnabled: boolean;
+  /** The gameserver's own webhook feature (WEBHOOK_ENABLED) - info only */
+  gameserverWebhookEnabled: boolean;
+}
+
+export type DiscordSettingsDeps =
+  | {
+      mode: "bot";
+      store: import("../settings/runtime.js").RuntimeSettingsStore;
+      base: import("../config.js").DiscordBotMode;
+      runtime: import("../settings/runtime.js").DiscordRuntime;
+    }
+  | {
+      mode: "webhook";
+      store: import("../settings/runtime.js").RuntimeSettingsStore;
+      base: import("../config.js").DiscordWebhookMode;
+      runtime: import("../settings/runtime.js").WebhookRuntime;
+    };
 
 export interface AppEnv {
   Variables: {
@@ -69,7 +107,7 @@ export function createHealthApp(config: CompanionConfig, version: string): Hono 
 }
 
 export function createApp(config: CompanionConfig, version: string, deps: AppDeps): Hono<AppEnv> {
-  const { auth, collector, settings, client } = deps;
+  const { auth, collector, settings, client, discordSettings } = deps;
   const panel = config.panel;
   if (!panel) throw new Error("createApp called without panel config");
 
@@ -222,6 +260,9 @@ export function createApp(config: CompanionConfig, version: string, deps: AppDep
       else if (action === "ban") await client.ban(userid, "Banned by an admin via the web panel");
       else await client.unban(userid);
       log.warn(`>>> Panel moderation: ${action} ${userid}`);
+      // Actor in newName: feeds the dashboard log and the Discord admin audit
+      const target = collector.latest()?.players.find((p) => p.userId === userid)?.name ?? userid;
+      await collector.recordEvent({ at: Date.now(), type: action, name: target, newName: "web panel" });
       const results = { kick: "kicked", ban: "banned", unban: "unbanned" } as const;
       return c.redirect(`/players?result=${results[action]}`);
     } catch (error) {
@@ -240,6 +281,68 @@ export function createApp(config: CompanionConfig, version: string, deps: AppDep
   });
 
   const settingsReadOnly = config.serverSettingsMode !== "auto";
+
+  // The page always carries BOTH groups (transparency): the active one from
+  // config + overrides, the inactive one straight from the env snapshot
+  const envView: DiscordEnvView = deps.discordEnv ?? {
+    webhookUrl: "",
+    statusChannelId: "",
+    logsChannelId: "",
+    adminChannelId: "",
+    updateIntervalSeconds: "30",
+    presenceEnabled: true,
+    commandsEnabled: false,
+    gameserverWebhookEnabled: false,
+  };
+
+  const botGroupValues = (): BotGroupValues => {
+    if (discordSettings?.mode === "bot") {
+      const { base, runtime } = discordSettings;
+      const overrides = discordSettings.store.get().discord ?? {};
+      return {
+        statusChannelId: overrides.statusChannelId ?? "",
+        logsChannelId: overrides.logsChannelId ?? "",
+        adminChannelId: overrides.adminChannelId ?? "",
+        updateIntervalSeconds: overrides.updateIntervalSeconds !== undefined ? String(overrides.updateIntervalSeconds) : "",
+        presenceEnabled: runtime.presenceEnabled(),
+        commandsEnabled: runtime.commandsEnabled(),
+        envStatusChannelId: base.channelId,
+        envLogsChannelId: base.logsChannelId ?? "",
+        envAdminChannelId: base.adminChannelId ?? "",
+        envUpdateIntervalSeconds: String(base.updateIntervalSeconds),
+      };
+    }
+    return {
+      statusChannelId: envView.statusChannelId,
+      logsChannelId: envView.logsChannelId,
+      adminChannelId: envView.adminChannelId,
+      updateIntervalSeconds: envView.updateIntervalSeconds,
+      presenceEnabled: envView.presenceEnabled,
+      commandsEnabled: envView.commandsEnabled,
+      envStatusChannelId: envView.statusChannelId,
+      envLogsChannelId: envView.logsChannelId,
+      envAdminChannelId: envView.adminChannelId,
+      envUpdateIntervalSeconds: envView.updateIntervalSeconds,
+    };
+  };
+
+  const webhookGroupValues = (): WebhookGroupValues => {
+    if (discordSettings?.mode === "webhook") {
+      const overrides = discordSettings.store.get().discord ?? {};
+      return {
+        webhookUrl: overrides.webhookUrl ?? "",
+        updateIntervalSeconds: overrides.updateIntervalSeconds !== undefined ? String(overrides.updateIntervalSeconds) : "",
+        envWebhookUrl: discordSettings.base.webhookUrl,
+        envUpdateIntervalSeconds: String(discordSettings.base.updateIntervalSeconds),
+      };
+    }
+    return {
+      webhookUrl: envView.webhookUrl,
+      updateIntervalSeconds: envView.updateIntervalSeconds,
+      envWebhookUrl: envView.webhookUrl,
+      envUpdateIntervalSeconds: envView.updateIntervalSeconds,
+    };
+  };
 
   const renderSettings = async (c: Context<AppEnv>, extra: { saved?: number; errors?: string[] } = {}) => {
     const effective = await settings.effectiveSettings();
@@ -260,6 +363,82 @@ export function createApp(config: CompanionConfig, version: string, deps: AppDep
   app.get("/settings", (c) => {
     const saved = c.req.query("saved");
     return renderSettings(c, saved ? { saved: Number.parseInt(saved, 10) } : {});
+  });
+
+  const renderDiscord = (c: Context<AppEnv>, extra: { saved?: boolean; errors?: string[] } = {}) => {
+    const csrf = auth.csrfToken(getCookie(c, SESSION_COOKIE) ?? "");
+    return c.html(
+      DiscordPage({
+        t: c.get("t"),
+        language: c.get("language"),
+        csrf,
+        activeMode: discordSettings?.mode ?? "off",
+        bot: botGroupValues(),
+        webhook: webhookGroupValues(),
+        gameserverWebhookEnabled: envView.gameserverWebhookEnabled,
+        saved: extra.saved === true,
+        errors: extra.errors,
+      }),
+    );
+  };
+
+  app.get("/discord", (c) => renderDiscord(c, { saved: c.req.query("saved") === "1" }));
+
+  const SNOWFLAKE = /^\d{17,20}$/;
+
+  app.post("/discord", async (c) => {
+    if (!discordSettings) return c.redirect("/discord");
+    const form = await c.req.parseBody();
+    const errors: string[] = [];
+    const overrides: import("../settings/runtime.js").DiscordRuntimeOverrides = {};
+    const minInterval = discordSettings.mode === "bot" ? 10 : 15;
+    const interval = typeof form.updateIntervalSeconds === "string" ? form.updateIntervalSeconds.trim() : "";
+    if (interval.length > 0) {
+      // Whole-string integer check: parseInt("10abc") would silently pass
+      if (!/^\d+$/.test(interval) || Number.parseInt(interval, 10) < minInterval) {
+        errors.push(`updateIntervalSeconds: must be a whole number >= ${minInterval}`);
+      } else {
+        overrides.updateIntervalSeconds = Number.parseInt(interval, 10);
+      }
+    }
+    if (discordSettings.mode === "webhook") {
+      const url = typeof form.webhookUrl === "string" ? form.webhookUrl.trim() : "";
+      if (url.length > 0) {
+        // empty = no override, env applies
+        const { WEBHOOK_URL_PATTERN } = await import("../settings/runtime.js");
+        if (!WEBHOOK_URL_PATTERN.test(url)) {
+          errors.push("webhookUrl: not a Discord webhook URL (https://discord.com/api/webhooks/...)");
+        } else {
+          overrides.webhookUrl = url;
+        }
+      }
+    } else {
+      for (const key of ["statusChannelId", "logsChannelId", "adminChannelId"] as const) {
+        const value = typeof form[key] === "string" ? form[key].trim() : "";
+        if (value.length === 0) continue; // empty = no override, env applies
+        if (!SNOWFLAKE.test(value)) {
+          errors.push(`${key}: not a valid Discord id`);
+          continue;
+        }
+        overrides[key] = value;
+      }
+      // Checkboxes always express an explicit choice once the form is saved
+      overrides.presenceEnabled = form.presenceEnabled === "on";
+      overrides.commandsEnabled = form.commandsEnabled === "on";
+    }
+    if (errors.length > 0) return renderDiscord(c, { errors });
+    await discordSettings.store.setDiscord(overrides);
+    await collector.recordEvent({ at: Date.now(), type: "settings", newName: "web panel" });
+    log.info(">>> Panel saved Discord runtime settings");
+    return c.redirect("/discord?saved=1");
+  });
+
+  app.post("/discord/reset", async (c) => {
+    if (!discordSettings) return c.redirect("/discord");
+    await discordSettings.store.setDiscord({});
+    await collector.recordEvent({ at: Date.now(), type: "settings", newName: "web panel" });
+    log.info(">>> Panel reset all Discord runtime settings");
+    return c.redirect("/discord?saved=1");
   });
 
   app.post("/settings/save", async (c) => {
@@ -283,7 +462,7 @@ export function createApp(config: CompanionConfig, version: string, deps: AppDep
     const changes = await settings.applySubmission(submitted);
     log.info(`>>> Panel saved settings (${changes} override changes)`);
     if (changes > 0) {
-      await collector.recordEvent({ at: Date.now(), type: "settings" });
+      await collector.recordEvent({ at: Date.now(), type: "settings", newName: "web panel" });
     }
     return c.redirect(`/settings?saved=${changes}`);
   });
@@ -324,7 +503,7 @@ export function createApp(config: CompanionConfig, version: string, deps: AppDep
       return c.html(`<meta http-equiv="refresh" content="5; url=/" /><p>${t("settings.restartFailed")}</p>`, 502);
     }
     log.warn(">>> Panel triggered a server restart");
-    await collector.recordEvent({ at: Date.now(), type: "restart" });
+    await collector.recordEvent({ at: Date.now(), type: "restart", newName: "web panel" });
     return c.html(`<meta http-equiv="refresh" content="5; url=/" /><p>${t("settings.restartTriggered")}</p>`);
   });
 

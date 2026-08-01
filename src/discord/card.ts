@@ -73,6 +73,9 @@ const EVENT_EMOJI: Record<string, string> = {
   restart: "🔄",
   backup: "💾",
   settings: "⚙️",
+  kick: "🥾",
+  ban: "🔨",
+  unban: "⚖️",
 };
 
 const EVENT_LABELS: Record<string, string> = {
@@ -83,12 +86,16 @@ const EVENT_LABELS: Record<string, string> = {
   updating: "SteamCMD - updating gameserver files",
   "updating-validate": "SteamCMD - updating and validating gameserver files",
   stopping: "Stopping server",
-  restart: "Automatic restart triggered",
+  restart: "Restart triggered",
   backup: "Backup created",
-  settings: "Settings changed via web panel",
+  settings: "Settings changed",
+  kick: "Player kicked",
+  ban: "Player banned",
+  unban: "Player unbanned",
 };
 
-function renderEventLine(event: ServerEvent, eventEmoji: Partial<Record<string, string>>): string {
+// Exported so the logs-channel event relay renders identical lines
+export function renderEventLine(event: ServerEvent, eventEmoji: Partial<Record<string, string>>): string {
   const time = `<t:${Math.floor(event.at / 1000)}:t>`;
   const emoji = eventEmoji[event.type] ?? EVENT_EMOJI[event.type] ?? "▫️";
   // Emoji first: Discord's font has proportional digits, so timestamps
@@ -100,9 +107,20 @@ function renderEventLine(event: ServerEvent, eventEmoji: Partial<Record<string, 
       return `${emoji} ${time} \`${sanitizeName(event.name ?? "?")}\` left`;
     case "rename":
       return `${emoji} ${time} \`${sanitizeName(event.name ?? "?")}\` is now \`${sanitizeName(event.newName ?? "?")}\``;
+    case "kick":
+    case "ban":
+    case "unban":
+      return `${emoji} ${time} \`${sanitizeName(event.name ?? "?")}\` ${{ kick: "kicked", ban: "banned", unban: "unbanned" }[event.type]}`;
     default:
       return `${emoji} ${time} ${EVENT_LABELS[event.type] ?? event.type}`;
   }
+}
+
+// Audit rendering for the admin channel: same line plus the acting user
+// (event.newName carries the actor for admin-action events)
+export function renderAuditLine(event: ServerEvent, eventEmoji: Partial<Record<string, string>>): string {
+  const base = renderEventLine(event, eventEmoji);
+  return event.newName && event.type !== "rename" ? `${base} - by **${sanitizeName(event.newName)}**` : base;
 }
 
 // Custom emoji tokens cost ~44 RAW characters each (Discord counts markdown,

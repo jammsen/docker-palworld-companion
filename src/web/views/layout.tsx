@@ -3,7 +3,7 @@ import type { Child } from "hono/jsx";
 export interface LayoutProps {
   t: (key: string) => string;
   language: string;
-  activeNav?: "dashboard" | "players" | "settings";
+  activeNav?: "dashboard" | "players" | "settings" | "discord";
   autoRefreshSeconds?: number;
   csrf?: string;
   children?: Child;
@@ -33,6 +33,9 @@ export function Layout({ t, language, activeNav, autoRefreshSeconds, csrf, child
               </a>
               <a href="/settings" class={activeNav === "settings" ? "active" : ""}>
                 {t("nav.settings")}
+              </a>
+              <a href="/discord" class={activeNav === "discord" ? "active" : ""}>
+                {t("nav.discord")}
               </a>
               <span class="spacer" />
               <form method="post" action="/language" class="inline">

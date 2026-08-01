@@ -6,13 +6,14 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file=dev/dev.env src/index.ts",
     "mock": "tsx dev/mock-palserver.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@hono/node-server": "2.0.12",
+    "discord.js": "14.27.0",
     "hono": "4.12.32"
   },
   "devDependencies": {

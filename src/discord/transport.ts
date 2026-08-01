@@ -17,8 +17,11 @@ export interface EmbedPayload {
   embeds: DiscordEmbed[];
 }
 
-// Transport seam: webhook today, bot account (channel messages + bot token) later.
-// Implementations own create-or-edit semantics so callers just publish.
+// Transport seam with two implementations: webhook (WebhookClient, no bot
+// account) and bot (bot-token REST channel messages). Implementations own
+// create-or-edit semantics so callers just publish.
 export interface StatusTransport {
   publish(payload: EmbedPayload): Promise<void>;
+  /** Optional teardown for transport-owned resources; called after the final offline publish */
+  close?(): Promise<void>;
 }

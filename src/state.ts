@@ -4,7 +4,14 @@ import { join } from "node:path";
 import { log } from "./logger.js";
 
 export interface CompanionState {
+  /** Status-card message id in webhook mode (webhook-scoped - a bot cannot edit it) */
   discordMessageId?: string;
+  /** Status-card message id in bot mode (kept separate so mode switches can resume either card) */
+  discordBotMessageId?: string;
+  /** Event-relay cursor: key of the newest event already posted to the logs channel */
+  discordLogsLastEventKey?: string;
+  /** Audit-relay cursor: key of the newest admin-action event already posted to the admin channel */
+  discordAdminLastEventKey?: string;
   sessionSecret?: string;
   lastRestartAt?: number;
 }

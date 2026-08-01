@@ -15,8 +15,9 @@ races between the two can never happen.
 | Game volume | read-write (owner) | **read-only** at `GAME_ROOT` | `game-events.log`, `default.env.template`, `Pal/Saved/Config/LinuxServer/PalWorldSettings.ini`, `Pal/Saved/SaveGames/banlist.txt` |
 | Companion data volume | **read-only** at `COMPANION_DATA_DIR` | read-write (owner) at `COMPANION_DATA_DIR` | `settings-overrides.env` |
 
-The companion data volume additionally holds `state.json` and
-`companion-events.log`, which the gameserver never reads.
+The companion data volume additionally holds `state.json`,
+`companion-events.log` and `companion-settings.json` (panel-written runtime
+overrides for companion-owned settings), none of which the gameserver reads.
 
 ## Event logs
 
@@ -27,8 +28,9 @@ provenance (game vs. panel events):
   (`includes/gameevents.sh`): player joins/leaves/renames, starting,
   installing, updating, updating-validate, stopping, restart, backup.
 - `<companion data volume>/companion-events.log` - written **only** by the
-  companion: panel restarts, settings saves, REST API online/offline
-  transitions.
+  companion: restarts, settings saves, kick/ban/unban moderation actions
+  (from the web panel or Discord commands; `detail` = target player,
+  `detail2` = acting user) and REST API online/offline transitions.
 
 Line format for both files:
 
@@ -89,11 +91,12 @@ Consumed by the **companion** container:
 | --- | --- |
 | `GAME_ROOT` | Mount point of the read-only game volume (default `/palworld`) |
 | `COMPANION_DATA_DIR` | Companion-owned writable directory (default `${GAME_ROOT}/companion`) |
+| `PUID` / `PGID` | User/group the service drops to after chowning its data dir at boot (default `1000:1000` - same contract as the gameserver image) |
 | `RESTAPI_HOST` / `RESTAPI_PORT` / `RESTAPI_TIMEOUT` | Where and how to reach the gameserver REST API |
 | `RESTAPI_ENABLED` | Must be `true` on **both** containers - without it the companion has no live game data |
 | `ADMIN_PASSWORD` | Shared secret: REST API password, set identically on both containers |
 | `SERVER_SETTINGS_MODE` | Mirrors the gameserver's mode so the settings editor knows whether it may write |
-| `PANEL_*`, `DISCORD_STATUS_*`, `COMPANION_DEBUG` | Companion features - see ENV_VARS |
+| `PANEL_*`, `DISCORD_STATUS_*`, `DISCORD_BOT_TOKEN`, `DISCORD_*_CHANNEL_ID`, `DISCORD_GUILD_ID`, `DISCORD_PRESENCE_ENABLED`, `DISCORD_COMMANDS_ENABLED`, `COMPANION_DEBUG` | Companion features - see ENV_VARS |
 
 Consumed by the **gameserver** container for this contract:
 

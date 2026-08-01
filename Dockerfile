@@ -27,7 +27,10 @@ RUN mkdir -p "${COMPANION_DATA_DIR}" \
     && chown node:node "${COMPANION_DATA_DIR}" \
     && node /companion/companion.mjs --version
 
-USER node
+# No USER directive: the service starts as root, chowns the (possibly
+# root-owned, Docker-created) bind-mounted data dir to PUID:PGID and drops
+# privileges to that user itself - the same PUID/PGID contract as the
+# gameserver image (default 1000:1000, see src/index.ts dropPrivileges)
 
 EXPOSE 8213/tcp
 

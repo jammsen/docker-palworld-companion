@@ -17,6 +17,9 @@ const EVENT_EMOJI: Record<string, string> = {
   restart: "🔄",
   backup: "💾",
   settings: "⚙️",
+  kick: "🥾",
+  ban: "🔨",
+  unban: "⚖️",
 };
 
 function eventLine(event: ServerEvent, t: (key: string) => string): string {
@@ -28,6 +31,13 @@ function eventLine(event: ServerEvent, t: (key: string) => string): string {
       return `${emoji} ${event.name} ${t("events.leave")}`;
     case "rename":
       return `${emoji} ${event.name} ${t("events.rename")} ${event.newName}`;
+    case "kick":
+    case "ban":
+    case "unban": {
+      // name = target, newName = acting admin (companion-sourced only)
+      const actor = event.newName ? ` - ${t("events.by")} ${event.newName}` : "";
+      return `${emoji} ${event.name} ${t(`events.${event.type}`)}${actor}`;
+    }
     default:
       return `${emoji} ${t(`events.${event.type}`)}`;
   }

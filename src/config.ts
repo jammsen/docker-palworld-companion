@@ -39,8 +39,7 @@ export interface PanelConfig {
   trustProxy: boolean;
 }
 
-export interface DiscordStatusConfig {
-  webhookUrl: string;
+interface DiscordStatusBase {
   updateIntervalSeconds: number;
   /** Custom <:name:id> emoji per platform prefix (steam, xbox, ps5, mac) */
   platformEmoji: Partial<Record<string, string>>;
@@ -49,6 +48,29 @@ export interface DiscordStatusConfig {
   /** How many events the card's last-events field shows (1..EVENT_LOG_CAPACITY) */
   eventAmount: number;
 }
+
+export interface DiscordWebhookMode extends DiscordStatusBase {
+  mode: "webhook";
+  webhookUrl: string;
+}
+
+export interface DiscordBotMode extends DiscordStatusBase {
+  mode: "bot";
+  botToken: string;
+  /** Live-card channel (required in bot mode) */
+  channelId: string;
+  /** Event-stream channel - relay disabled when unset. May equal any other channel id. */
+  logsChannelId?: string;
+  /** Moderation-command + audit channel (Phase B) - may equal any other channel id */
+  adminChannelId?: string;
+  /** Guild for slash-command registration (Phase B) */
+  guildId?: string;
+  presenceEnabled: boolean;
+  commandsEnabled: boolean;
+}
+
+// Discriminated on `mode`: token+channel present selects bot mode, else webhook
+export type DiscordStatusConfig = DiscordWebhookMode | DiscordBotMode;
 
 export interface RestApiConfig {
   enabled: boolean;
@@ -60,6 +82,10 @@ export interface RestApiConfig {
 }
 
 export const MIN_DISCORD_INTERVAL_SECONDS = 15;
+/** Bot channel-message edits have roomier rate limits than webhooks */
+export const MIN_DISCORD_BOT_INTERVAL_SECONDS = 10;
+
+const SNOWFLAKE_PATTERN = /^\d{17,20}$/;
 
 // Shipped emoji defaults (previously ENV defaults of the bundled gameserver
 // image). Semantics: variable unset -> default token, set to empty -> neutral
@@ -135,16 +161,36 @@ export function parseConfig(env: Record<string, string | undefined>): CompanionC
   let discord: DiscordStatusConfig | null = null;
   if (envBool(env.DISCORD_STATUS_ENABLED)) {
     const webhookUrl = env.DISCORD_STATUS_WEBHOOK_URL || env.WEBHOOK_URL || "";
-    if (webhookUrl.length === 0) {
+    const botToken = env.DISCORD_BOT_TOKEN ?? "";
+    const channelId = env.DISCORD_STATUS_CHANNEL_ID ?? "";
+
+    // Mode selection: a bot token selects bot mode (needs a valid card
+    // channel); otherwise the webhook path, exactly as before
+    let mode: "bot" | "webhook" | null = null;
+    if (botToken.length > 0) {
+      if (SNOWFLAKE_PATTERN.test(channelId)) {
+        mode = "bot";
+        if (webhookUrl.length > 0) {
+          warnings.push("Discord bot mode active - DISCORD_STATUS_WEBHOOK_URL is ignored");
+        }
+      } else {
+        warnings.push(
+          "DISCORD_BOT_TOKEN is set but DISCORD_STATUS_CHANNEL_ID is missing or not a valid channel id - falling back to webhook mode",
+        );
+      }
+    }
+    if (mode === null && webhookUrl.length > 0) mode = "webhook";
+    if (mode === null) {
       warnings.push(
-        "DISCORD_STATUS_ENABLED is true but neither DISCORD_STATUS_WEBHOOK_URL nor WEBHOOK_URL is set - disabling the Discord status card",
+        "DISCORD_STATUS_ENABLED is true but neither a bot (DISCORD_BOT_TOKEN + DISCORD_STATUS_CHANNEL_ID) nor a webhook URL is configured - disabling the Discord status card",
       );
     } else {
+      const minInterval = mode === "bot" ? MIN_DISCORD_BOT_INTERVAL_SECONDS : MIN_DISCORD_INTERVAL_SECONDS;
       const requested = envInt(env.DISCORD_STATUS_UPDATE_INTERVAL, 30);
-      const updateIntervalSeconds = Math.max(requested, MIN_DISCORD_INTERVAL_SECONDS);
+      const updateIntervalSeconds = Math.max(requested, minInterval);
       if (updateIntervalSeconds !== requested) {
         warnings.push(
-          `DISCORD_STATUS_UPDATE_INTERVAL=${requested} is below the webhook rate-limit safety minimum - clamped to ${MIN_DISCORD_INTERVAL_SECONDS} seconds`,
+          `DISCORD_STATUS_UPDATE_INTERVAL=${requested} is below the ${mode} rate-limit safety minimum - clamped to ${minInterval} seconds`,
         );
       }
       const platformEmoji: Partial<Record<string, string>> = {};
@@ -178,7 +224,45 @@ export function parseConfig(env: Record<string, string | undefined>): CompanionC
           `DISCORD_STATUS_EVENT_AMOUNT=${requestedEvents} is outside the valid range 1-${EVENT_LOG_CAPACITY} - clamped to ${eventAmount}`,
         );
       }
-      discord = { webhookUrl, updateIntervalSeconds, platformEmoji, eventEmoji, eventAmount };
+      const base = { updateIntervalSeconds, platformEmoji, eventEmoji, eventAmount };
+
+      if (mode === "bot") {
+        // Optional channels: any of them may share an id with any other -
+        // deliberately the user's call, no uniqueness validation
+        const optionalChannel = (key: string): string | undefined => {
+          const value = env[key] ?? "";
+          if (value.length === 0) return undefined;
+          if (SNOWFLAKE_PATTERN.test(value)) return value;
+          warnings.push(`${key}=${value} is not a valid Discord id - ignoring it`);
+          return undefined;
+        };
+        const logsChannelId = optionalChannel("DISCORD_LOGS_CHANNEL_ID");
+        const adminChannelId = optionalChannel("DISCORD_ADMIN_CHANNEL_ID");
+        const guildId = optionalChannel("DISCORD_GUILD_ID");
+        let commandsEnabled = envBool(env.DISCORD_COMMANDS_ENABLED);
+        if (commandsEnabled && guildId === undefined) {
+          warnings.push("DISCORD_COMMANDS_ENABLED is true but DISCORD_GUILD_ID is missing - slash commands disabled");
+          commandsEnabled = false;
+        }
+        if (channelId === logsChannelId || channelId === adminChannelId) {
+          warnings.push(
+            "the live-card channel is also used as logs/admin channel - the card will get buried under the message stream (it still updates in place)",
+          );
+        }
+        discord = {
+          mode: "bot",
+          ...base,
+          botToken,
+          channelId,
+          logsChannelId,
+          adminChannelId,
+          guildId,
+          presenceEnabled: env.DISCORD_PRESENCE_ENABLED === undefined ? true : envBool(env.DISCORD_PRESENCE_ENABLED),
+          commandsEnabled,
+        };
+      } else {
+        discord = { mode: "webhook", ...base, webhookUrl };
+      }
     }
   }
 

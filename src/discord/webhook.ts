@@ -1,80 +1,60 @@
-import { log } from "../logger.js";
+import { WebhookClient } from "discord.js";
+import { CreateOrEditPublisher, type MessageApi } from "./publisher.js";
 import type { EmbedPayload, StatusTransport } from "./transport.js";
 
-export interface WebhookTransportOptions {
-  webhookUrl: string;
-  getMessageId: () => string | undefined;
-  setMessageId: (id: string | undefined) => Promise<void>;
-  fetchFn?: typeof fetch;
+// Test seam: the WebhookClient surface the adapter actually uses
+export interface WebhookLike {
+  send(options: { embeds: EmbedPayload["embeds"] }): Promise<{ id: string }>;
+  editMessage(messageId: string, options: { embeds: EmbedPayload["embeds"] }): Promise<unknown>;
+  destroy(): void;
 }
 
-// Publishes ONE message via the webhook, then edits it in place:
-//   first publish  -> POST {webhook}?wait=true (response contains the message id)
-//   thereafter     -> PATCH {webhook}/messages/{id}
-//   message deleted (404) -> forget the id and re-post
-//   rate limited (429)    -> log and skip; the next tick tries again
-export class WebhookTransport implements StatusTransport {
-  private readonly fetchFn: typeof fetch;
+export interface WebhookTransportOptions {
+  /** Static URL, or a getter for panel-overridable webhook URLs (hot-swap) */
+  webhookUrl: string | (() => string);
+  getMessageId: () => string | undefined;
+  setMessageId: (id: string | undefined) => Promise<void>;
+  /** Test seam - a fixed WebhookClient-compatible fake (URL swaps are ignored) */
+  client?: WebhookLike;
+  /** Test seam - client construction per URL, exercised by hot-swap tests */
+  clientFactory?: (url: string) => WebhookLike;
+}
 
-  constructor(private readonly options: WebhookTransportOptions) {
-    this.fetchFn = options.fetchFn ?? fetch;
-  }
-
-  async publish(payload: EmbedPayload): Promise<void> {
-    const messageId = this.options.getMessageId();
-    if (messageId) {
-      const response = await this.request(`${this.options.webhookUrl}/messages/${messageId}`, "PATCH", payload);
-      if (response === "not-found") {
-        log.warn(">>> Discord status message was deleted - posting a new one");
-        await this.options.setMessageId(undefined);
-        await this.createMessage(payload);
-      }
-      return;
+// Webhook mode: no bot account needed. discord.js WebhookClient brings proper
+// rate-limit queueing (429s are retried, not skipped anymore). One attempt
+// with a 10s timeout (retries: 0) keeps the final shutdown edit inside the
+// 12s SIGTERM window - two attempts would exceed it.
+export function createWebhookTransport(options: WebhookTransportOptions): StatusTransport {
+  const resolveUrl = () => (typeof options.webhookUrl === "function" ? options.webhookUrl() : options.webhookUrl);
+  const makeClient = (url: string): WebhookLike =>
+    options.client ??
+    options.clientFactory?.(url) ??
+    new WebhookClient({ url }, { rest: { timeout: 10_000, retries: 0 } });
+  let currentUrl: string | undefined;
+  let client: WebhookLike | undefined;
+  // Panel hot-swap: when the effective URL changes between publishes, talk to
+  // the new webhook from now on. The stored message id belongs to the old
+  // webhook - the next edit 404s and the publisher re-creates the card.
+  const activeClient = (): WebhookLike => {
+    const url = resolveUrl();
+    if (client === undefined || url !== currentUrl) {
+      client?.destroy();
+      client = makeClient(url);
+      currentUrl = url;
     }
-    await this.createMessage(payload);
-  }
-
-  private async createMessage(payload: EmbedPayload): Promise<void> {
-    const response = await this.fetchFn(`${this.options.webhookUrl}?wait=true`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (response.status === 429) {
-      this.logRateLimit(response);
-      return;
-    }
-    if (!response.ok) {
-      throw new Error(`Discord webhook POST failed (HTTP ${response.status})`);
-    }
-    const message = (await response.json()) as { id?: string };
-    if (message.id) {
-      await this.options.setMessageId(message.id);
-      log.success(`>>> Discord status card created (message id ${message.id})`);
-    }
-  }
-
-  private async request(url: string, method: string, payload: EmbedPayload): Promise<"ok" | "not-found"> {
-    const response = await this.fetchFn(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (response.status === 404) return "not-found";
-    if (response.status === 429) {
-      this.logRateLimit(response);
-      return "ok";
-    }
-    if (!response.ok) {
-      throw new Error(`Discord webhook ${method} failed (HTTP ${response.status})`);
-    }
-    return "ok";
-  }
-
-  private logRateLimit(response: Response): void {
-    const retryAfter = response.headers.get("retry-after") ?? "unknown";
-    log.warn(`>>> Discord webhook rate limited (retry-after: ${retryAfter}s) - skipping this update`);
-  }
+    return client;
+  };
+  const api: MessageApi = {
+    create: async (payload) => (await activeClient().send({ embeds: payload.embeds })).id,
+    edit: async (messageId, payload) => {
+      await activeClient().editMessage(messageId, { embeds: payload.embeds });
+    },
+    close: () => client?.destroy(),
+  };
+  return new CreateOrEditPublisher({
+    api,
+    getMessageId: options.getMessageId,
+    setMessageId: options.setMessageId,
+    label: "webhook",
+  });
 }

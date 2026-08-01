@@ -3,29 +3,47 @@ import { log } from "../logger.js";
 import type { MetricsCollector } from "../metrics/collector.js";
 import type { StateStore } from "../state.js";
 import { buildStatusCard, type CardState } from "./card.js";
+import { describeDiscordError } from "./errors.js";
+import type { EventRelay } from "./event-relay.js";
+import type { PresenceUpdater } from "./presence.js";
 import type { StatusTransport } from "./transport.js";
-import { WebhookTransport } from "./webhook.js";
+import { createWebhookTransport } from "./webhook.js";
 
 export interface DiscordStatusDeps {
   collector: MetricsCollector;
   state: StateStore;
+  /** Required in bot mode (wired in index.ts with the shared REST manager) */
   transport?: StatusTransport;
+  /** Bot mode: gateway presence, updated after each card publish */
+  presence?: PresenceUpdater;
+  /** Bot mode: logs-channel event stream, fed after each card publish */
+  eventRelay?: EventRelay;
+  /** Bot mode: admin-channel audit stream (admin-action events with actor) */
+  auditRelay?: EventRelay;
+  /** Bot mode: effective interval getter - the panel can hot-change it; the timer re-arms after the next tick */
+  runtimeInterval?: () => number;
 }
 
-// Interval loop: collect a snapshot, render the card, publish (create-or-edit).
-// Returns a stop function that publishes a final "offline" card.
+// Interval loop: collect a snapshot, render the card, publish (create-or-edit),
+// then feed the optional event relay and presence. Returns a stop function
+// that publishes a final "offline" card and closes the transport.
 export async function startDiscordStatus(config: CompanionConfig, deps: DiscordStatusDeps): Promise<() => Promise<void>> {
   const discord = config.discord;
   if (!discord) throw new Error("startDiscordStatus called without Discord config");
 
   const { collector, state } = deps;
-  const transport =
-    deps.transport ??
-    new WebhookTransport({
+  let transport: StatusTransport;
+  if (deps.transport) {
+    transport = deps.transport;
+  } else if (discord.mode === "webhook") {
+    transport = createWebhookTransport({
       webhookUrl: discord.webhookUrl,
       getMessageId: () => state.get().discordMessageId,
       setMessageId: (id) => state.update({ discordMessageId: id }),
     });
+  } else {
+    throw new Error("bot mode requires an injected transport (wired in index.ts)");
+  }
 
   let inFlight = false;
   let stopped = false;
@@ -45,8 +63,12 @@ export async function startDiscordStatus(config: CompanionConfig, deps: DiscordS
           eventAmount: discord.eventAmount,
         }),
       );
+      await deps.eventRelay?.publish(snapshot.events);
+      await deps.auditRelay?.publish(snapshot.events);
+      deps.presence?.publish(snapshot, cardState);
+      rearmTimer();
     } catch (error) {
-      log.warn(`>>> Discord status update failed: ${String(error)}`);
+      log.warn(`>>> Discord status update failed: ${describeDiscordError(error)}`);
     } finally {
       inFlight = false;
     }
@@ -58,13 +80,23 @@ export async function startDiscordStatus(config: CompanionConfig, deps: DiscordS
     if (!inFlight && !stopped) currentTick = tick();
   };
 
-  log.info(`>>> Discord status card enabled (update interval: ${discord.updateIntervalSeconds}s)`);
+  log.info(`>>> Discord status card enabled (${discord.mode} mode, update interval: ${discord.updateIntervalSeconds}s)`);
+  let intervalSeconds = deps.runtimeInterval?.() ?? discord.updateIntervalSeconds;
+  let timer: ReturnType<typeof setInterval> | undefined;
+  const rearmTimer = () => {
+    const next = deps.runtimeInterval?.() ?? discord.updateIntervalSeconds;
+    if (next === intervalSeconds || stopped) return;
+    intervalSeconds = next;
+    if (timer !== undefined) clearInterval(timer);
+    timer = setInterval(scheduleTick, next * 1000);
+    log.info(`>>> Discord update interval changed to ${next}s`);
+  };
   scheduleTick();
-  const timer = setInterval(scheduleTick, discord.updateIntervalSeconds * 1000);
+  timer = setInterval(scheduleTick, intervalSeconds * 1000);
 
   return async () => {
     stopped = true;
-    clearInterval(timer);
+    if (timer !== undefined) clearInterval(timer);
     await currentTick; // never rejects - tick() catches internally
     try {
       // Pick up the shell's 'stopping' event written just before our SIGTERM,
@@ -77,9 +109,18 @@ export async function startDiscordStatus(config: CompanionConfig, deps: DiscordS
           eventAmount: discord.eventAmount,
         }),
       );
+      deps.presence?.publish(snapshot, "offline");
       log.info(">>> Discord status card set to offline");
     } catch (error) {
       log.warn(`>>> Final Discord offline update failed: ${String(error)}`);
+    } finally {
+      // Transport-owned teardown AFTER the final publish (gateway teardown is
+      // composed separately in index.ts, after this stop function completes)
+      try {
+        await transport.close?.();
+      } catch (error) {
+        log.debug(`transport close failed: ${String(error)}`);
+      }
     }
   };
 }

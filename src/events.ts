@@ -17,7 +17,10 @@ export type ServerEventType =
   | "stopping"
   | "restart"
   | "backup"
-  | "settings";
+  | "settings"
+  | "kick"
+  | "ban"
+  | "unban";
 
 /** Which log file an event came from - the file split is the provenance */
 export type EventSource = "game" | "companion";
@@ -44,7 +47,19 @@ export const ALL_EVENT_TYPES: ServerEventType[] = [
   "restart",
   "backup",
   "settings",
+  "kick",
+  "ban",
+  "unban",
 ];
+
+// Admin actions performed through the companion (web panel or Discord
+// command). The event's `name` is the target, `newName` carries the actor.
+// game-sourced events of these types (e.g. cron restarts) are NOT admin actions.
+const ADMIN_ACTION_TYPES: ReadonlySet<ServerEventType> = new Set(["kick", "ban", "unban", "restart", "settings"]);
+
+export function isAdminActionEvent(event: ServerEvent): boolean {
+  return event.source === "companion" && ADMIN_ACTION_TYPES.has(event.type);
+}
 
 export const EVENT_LOG_CAPACITY = 50;
 
@@ -77,6 +92,18 @@ export function formatEventLine(event: ServerEvent): string {
   if (event.name !== undefined || event.newName !== undefined) fields.push(sanitize(event.name ?? ""));
   if (event.newName !== undefined) fields.push(sanitize(event.newName));
   return fields.join("|");
+}
+
+/**
+ * Stable identity of an event line - used as the relay cursors. Includes every
+ * distinguishing field so same-second events (e.g. a cron restart and a panel
+ * restart) cannot collide; an unknown cursor format simply re-anchors the relay.
+ */
+export function eventKey(event: ServerEvent): string {
+  // Field separators cannot survive the log writers, but strip defensively so
+  // an in-memory event could never produce an ambiguous key either
+  const clean = (value: string | undefined) => (value ?? "").replaceAll("|", "");
+  return `${event.at}|${event.type}|${clean(event.name)}|${clean(event.newName)}|${event.source ?? ""}`;
 }
 
 // The ONLY events the companion detects itself are REST-API up/down
