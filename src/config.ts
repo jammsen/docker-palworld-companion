@@ -85,6 +85,16 @@ export const MIN_DISCORD_INTERVAL_SECONDS = 15;
 /** Bot channel-message edits have roomier rate limits than webhooks */
 export const MIN_DISCORD_BOT_INTERVAL_SECONDS = 10;
 
+// Pre-flight check, mirroring the gameserver's includes/security.sh
+// check_for_default_credentials: the shipped placeholder credentials must
+// never boot a service - returns the offending variable names
+export function findDefaultCredentials(env: Record<string, string | undefined>): string[] {
+  const offenders: string[] = [];
+  if (env.ADMIN_PASSWORD === "adminPasswordHere") offenders.push("ADMIN_PASSWORD");
+  if (env.PANEL_PASSWORD === "webpanelPasswordHere") offenders.push("PANEL_PASSWORD");
+  return offenders;
+}
+
 const SNOWFLAKE_PATTERN = /^\d{17,20}$/;
 
 // Shipped emoji defaults (previously ENV defaults of the bundled gameserver

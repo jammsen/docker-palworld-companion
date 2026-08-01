@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MIN_DISCORD_INTERVAL_SECONDS, parseConfig } from "../src/config.js";
+import { findDefaultCredentials, MIN_DISCORD_INTERVAL_SECONDS, parseConfig } from "../src/config.js";
 
 describe("parseConfig", () => {
   it("disables everything by default", () => {
@@ -233,5 +233,19 @@ describe("parseConfig", () => {
       RESTAPI_ENABLED: "false",
     });
     expect(config.warnings.some((w) => w.includes("RESTAPI_ENABLED"))).toBe(true);
+  });
+});
+
+describe("findDefaultCredentials", () => {
+  it("flags the shipped placeholder credentials (gameserver security.sh parity)", () => {
+    expect(
+      findDefaultCredentials({ ADMIN_PASSWORD: "adminPasswordHere", PANEL_PASSWORD: "webpanelPasswordHere" }),
+    ).toEqual(["ADMIN_PASSWORD", "PANEL_PASSWORD"]);
+  });
+
+  it("accepts real values, empty and unset", () => {
+    expect(findDefaultCredentials({ ADMIN_PASSWORD: "s3cret", PANEL_PASSWORD: "als0-s3cret" })).toEqual([]);
+    expect(findDefaultCredentials({ ADMIN_PASSWORD: "", PANEL_PASSWORD: "" })).toEqual([]);
+    expect(findDefaultCredentials({})).toEqual([]);
   });
 });

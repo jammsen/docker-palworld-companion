@@ -14,7 +14,7 @@ All variables the companion container understands. The file-and-volume side of t
 | RESTAPI_PORT        | Port of the gameserver's REST API                                                                                                             | 8212                       | UInt16        |
 | RESTAPI_ENABLED     | Must be `true` (and on the gameserver too) - without the REST API the companion has no live game data (players, metrics, actions)             | false                      | Boolean       |
 | RESTAPI_TIMEOUT     | Timeout in seconds for REST API requests                                                                                                      | 10                         | Integer       |
-| ADMIN_PASSWORD      | Shared secret: the gameserver's REST API password, set identically on both containers                                                         |                            | String        |
+| ADMIN_PASSWORD      | Shared secret: the gameserver's REST API password, set identically on both containers; the shipped placeholder `adminPasswordHere` aborts the container start (same pre-flight as the gameserver image) |                            | String        |
 | SERVER_SETTINGS_MODE | Mirrors the gameserver's mode - the settings editor is writable only in `auto`, read-only otherwise                                          | manual                     | auto, manual  |
 | PLAYER_DETECTION_ENABLED | Informational for warnings only: player join/leave/rename events come from the gameserver's player detection via `game-events.log`       | false                      | Boolean       |
 | COMPANION_ENV_TEMPLATE | Path of the ordering/comment template for the settings export - by default the gameserver provides it on the game volume at boot; export falls back to schema order when absent | ${GAME_ROOT}/default.env.template | Path |
@@ -27,7 +27,7 @@ All variables the companion container understands. The file-and-volume side of t
 | PANEL_ENABLED          | Set to enabled will serve the web operation panel on `PANEL_PORT`, NEEDS `PANEL_PASSWORD` and `RESTAPI_ENABLED`                        | false         | Boolean       |
 | PANEL_PORT             | HTTP port of the companion container - `/api/health` is served here even when the panel is disabled                                     | 8213          | UInt16        |
 | PANEL_USERNAME         | The login username for the web panel                                                                                                    | admin         | String        |
-| PANEL_PASSWORD         | The login password for the web panel - MUST be set to a non-empty value or the panel refuses to start                                   |               | String        |
+| PANEL_PASSWORD         | The login password for the web panel - MUST be set to a non-empty value or the panel refuses to start; the shipped placeholder `webpanelPasswordHere` aborts the container start (same pre-flight as the gameserver image) |               | String        |
 | PANEL_DEFAULT_LANGUAGE | Default language of the web panel when the browser does not state a preference                                                          | en            | en, zh-CN     |
 | PANEL_TRUST_PROXY      | Set to enabled will honor `X-Forwarded-*` headers for login rate-limiting and cookie security - ONLY enable behind a reverse proxy      | false         | Boolean       |
 

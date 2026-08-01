@@ -2,7 +2,7 @@ import { lchownSync, mkdirSync, readdirSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { serve } from "@hono/node-server";
-import { parseConfig } from "./config.js";
+import { findDefaultCredentials, parseConfig } from "./config.js";
 import { log, setDebug } from "./logger.js";
 import { createApp, createHealthApp } from "./web/app.js";
 
@@ -50,6 +50,13 @@ setDebug(config.debug);
 
 log.info(">>> Starting companion service");
 log.base(`> palworld-companion ${VERSION}`);
+
+// Same pre-flight as the gameserver image (includes/security.sh): refuse to
+// run with the shipped placeholder credentials
+for (const offender of findDefaultCredentials(process.env)) {
+  log.error(`>>> Security threat detected: Please change the default ${offender} value. Aborting companion start ...`);
+  process.exit(1);
+}
 
 dropPrivileges(config.dataDir);
 
