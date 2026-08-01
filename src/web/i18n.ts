@@ -10,7 +10,11 @@ const catalogs: Record<string, Catalog> = {
 
 export const availableLanguages = Object.keys(catalogs);
 
-export function resolveLanguage(cookieLang: string | undefined, acceptLanguage: string | undefined, fallback: string): string {
+export function resolveLanguage(
+  cookieLang: string | undefined,
+  acceptLanguage: string | undefined,
+  fallback: string,
+): string {
   if (cookieLang && catalogs[cookieLang]) return cookieLang;
   if (acceptLanguage) {
     // Honor q-weights: highest first, header order breaks ties, q=0 means "never"
@@ -40,7 +44,9 @@ export function resolveLanguage(cookieLang: string | undefined, acceptLanguage: 
       const exact = availableLanguages.find((lang) => lang.toLowerCase() === tagLower);
       if (exact) return exact;
       const base = tagLower.split("-")[0] ?? "";
-      const match = availableLanguages.find((lang) => lang.toLowerCase() === base || lang.toLowerCase().startsWith(`${base}-`));
+      const match = availableLanguages.find(
+        (lang) => lang.toLowerCase() === base || lang.toLowerCase().startsWith(`${base}-`),
+      );
       if (match) return match;
     }
   }

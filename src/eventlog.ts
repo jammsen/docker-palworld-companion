@@ -14,11 +14,13 @@ export class EventLogWriter {
 
   async append(event: ServerEvent): Promise<void> {
     // Serialize appends and trims so concurrent recordEvent calls cannot interleave
-    this.writeQueue = this.writeQueue.catch(() => {}).then(async () => {
-      await mkdir(dirname(this.filePath), { recursive: true });
-      await appendFile(this.filePath, `${formatEventLine(event)}\n`, "utf8");
-      await this.trim();
-    });
+    this.writeQueue = this.writeQueue
+      .catch(() => {})
+      .then(async () => {
+        await mkdir(dirname(this.filePath), { recursive: true });
+        await appendFile(this.filePath, `${formatEventLine(event)}\n`, "utf8");
+        await this.trim();
+      });
     await this.writeQueue;
   }
 

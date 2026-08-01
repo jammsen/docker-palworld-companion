@@ -128,7 +128,15 @@ describe("SettingsStore", () => {
       "",
     ].join("\n");
     const exported = await store.exportEnv(template);
-    const lines = exported.split("\n").filter((line) => !line.startsWith("# Effective") && !line.startsWith("# Generated") && !line.startsWith("# Gameserver") && !line.startsWith("# all other"));
+    const lines = exported
+      .split("\n")
+      .filter(
+        (line) =>
+          !line.startsWith("# Effective") &&
+          !line.startsWith("# Generated") &&
+          !line.startsWith("# Gameserver") &&
+          !line.startsWith("# all other"),
+      );
     expect(lines).toEqual([
       "# Backup-settings",
       "BACKUP_ENABLED=true", // non-gameserver key: template line kept verbatim

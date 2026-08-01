@@ -34,7 +34,7 @@ describe("AuthService", () => {
     const token = auth.csrfToken(session);
     expect(auth.verifyCsrf(session, token)).toBe(true);
     expect(auth.verifyCsrf(session, "wrong")).toBe(false);
-    expect(auth.verifyCsrf(auth.createSession() + "x", token)).toBe(false);
+    expect(auth.verifyCsrf(`${auth.createSession()}x`, token)).toBe(false);
   });
 
   describe("lockout", () => {

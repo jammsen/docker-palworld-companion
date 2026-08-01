@@ -1,7 +1,7 @@
 import type { ServerEvent } from "../events.js";
 import { formatDuration, formatGiB } from "../format.js";
 import type { StatusSnapshot } from "../metrics/collector.js";
-import { platformEmojiFromUserId, type PlatformEmojiOverrides } from "../palworld/platform.js";
+import { type PlatformEmojiOverrides, platformEmojiFromUserId } from "../palworld/platform.js";
 import type { DiscordEmbedField, EmbedPayload } from "./transport.js";
 
 const COLOR_ONLINE = 3066993; // green
@@ -22,7 +22,7 @@ function bar(percent: number, width: number): string {
 // Strip control characters and embed-breaking markdown from player names
 // (same rationale as the sanitization in includes/playerdetection.sh)
 export function sanitizeName(name: string): string {
-  // eslint-disable-next-line no-control-regex
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping control characters IS the point of this sanitizer
   return name.replace(/[\u0000-\u001F\u007F`]/g, "").slice(0, 32);
 }
 
@@ -32,7 +32,8 @@ export function sanitizeName(name: string): string {
 function cpuFields(corePercents: number[]): DiscordEmbedField[] {
   if (corePercents.length === 0) return [];
   const lines = corePercents.map(
-    (percent, index) => `C${String(index + 1).padStart(2, "0")} ${bar(percent, 10)} ${String(percent).padStart(3, " ")}%`,
+    (percent, index) =>
+      `C${String(index + 1).padStart(2, "0")} ${bar(percent, 10)} ${String(percent).padStart(3, " ")}%`,
   );
 
   // Beyond 2x CORES_PER_FIELD: collapse the rest into an average to stay inside budgets

@@ -1,4 +1,8 @@
-import { ApplicationCommandOptionType, PermissionFlagsBits, type RESTPostAPIChatInputApplicationCommandsJSONBody } from "discord.js";
+import {
+  ApplicationCommandOptionType,
+  PermissionFlagsBits,
+  type RESTPostAPIChatInputApplicationCommandsJSONBody,
+} from "discord.js";
 
 const MANAGE_GUILD = PermissionFlagsBits.ManageGuild.toString();
 

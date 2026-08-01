@@ -110,7 +110,13 @@ export function PlayersPage({ t, language, snapshot, csrf, banlist, actionResult
                   <code>{entry.raw}</code>
                 </td>
                 <td>
-                  <ModerationForm action="/players/unban" userid={entry.userid} label={t("players.unban")} csrf={csrf} buttonClass="linklike" />
+                  <ModerationForm
+                    action="/players/unban"
+                    userid={entry.userid}
+                    label={t("players.unban")}
+                    csrf={csrf}
+                    buttonClass="linklike"
+                  />
                 </td>
               </tr>
             ))}

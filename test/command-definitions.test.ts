@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { PermissionFlagsBits } from "discord.js";
+import { describe, expect, it } from "vitest";
 import { COMMAND_DEFINITIONS } from "../src/discord/commands/definitions.js";
 
 describe("COMMAND_DEFINITIONS", () => {

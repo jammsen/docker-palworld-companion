@@ -7,6 +7,7 @@ RUN npm ci --no-audit --no-fund
 
 COPY . ./
 RUN npm run typecheck \
+    && npm run lint \
     && npm test \
     && npm run build
 

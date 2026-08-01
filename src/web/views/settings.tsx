@@ -1,5 +1,5 @@
-import type { EffectiveSetting } from "../../settings/store.js";
 import { settingGroups } from "../../settings/schema.js";
+import type { EffectiveSetting } from "../../settings/store.js";
 import { Layout } from "./layout.js";
 
 export interface SettingsPageProps {
@@ -68,7 +68,16 @@ function ProvenanceBadge({ setting, t }: { setting: EffectiveSetting; t: (key: s
   return <span class={`badge ${setting.provenance}`}>{t(`settings.provenance.${setting.provenance}`)}</span>;
 }
 
-export function SettingsPage({ t, language, csrf, settings, readOnly, restartPending, saved, errors }: SettingsPageProps) {
+export function SettingsPage({
+  t,
+  language,
+  csrf,
+  settings,
+  readOnly,
+  restartPending,
+  saved,
+  errors,
+}: SettingsPageProps) {
   return (
     <Layout t={t} language={language} activeNav="settings" csrf={csrf}>
       <h1>⚙️ {t("settings.title")}</h1>

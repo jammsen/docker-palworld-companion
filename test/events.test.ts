@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { EVENT_LOG_CAPACITY, formatEventLine, mergeEvents, parseEventLog, serverStateEvents, type ServerEvent } from "../src/events.js";
+import {
+  EVENT_LOG_CAPACITY,
+  formatEventLine,
+  mergeEvents,
+  parseEventLog,
+  type ServerEvent,
+  serverStateEvents,
+} from "../src/events.js";
 
 const NOW = 1_752_000_000_000;
 
@@ -34,7 +41,7 @@ describe("parseEventLog", () => {
   it("parses player events with names from the shell player detection", () => {
     const content = [
       "1752000000|join|Selfcut",
-      '1752000010|rename|Selfcut|Selfcut,,,,.-$%!',
+      "1752000010|rename|Selfcut|Selfcut,,,,.-$%!",
       "1752000020|leave|Selfcut,,,,.-$%!",
     ].join("\n");
     expect(parseEventLog(content, "game")).toEqual([
@@ -77,7 +84,11 @@ describe("mergeEvents", () => {
   });
 
   it("caps the merged log at the display capacity, keeping the newest", () => {
-    const old: ServerEvent[] = Array.from({ length: EVENT_LOG_CAPACITY }, (_, i) => ({ at: i, type: "join", name: `p${i}` }));
+    const old: ServerEvent[] = Array.from({ length: EVENT_LOG_CAPACITY }, (_, i) => ({
+      at: i,
+      type: "join",
+      name: `p${i}`,
+    }));
     const merged = mergeEvents(old, [{ at: 999, type: "leave", name: "new" }]);
     expect(merged).toHaveLength(EVENT_LOG_CAPACITY);
     expect(merged.at(-1)).toEqual({ at: 999, type: "leave", name: "new" });

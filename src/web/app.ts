@@ -1,20 +1,20 @@
-import { getConnInfo } from "@hono/node-server/conninfo";
 import { readFileSync } from "node:fs";
-import { Hono } from "hono";
+import { getConnInfo } from "@hono/node-server/conninfo";
 import type { Context } from "hono";
+import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { CompanionConfig } from "../config.js";
 import { log } from "../logger.js";
 import type { MetricsCollector } from "../metrics/collector.js";
-import { parseBanlist, type BanlistEntry } from "../palworld/banlist.js";
+import { type BanlistEntry, parseBanlist } from "../palworld/banlist.js";
 import type { PalworldClient } from "../palworld/client.js";
 import { settingsByKey, validateSettingValue } from "../settings/schema.js";
 import type { SettingsStore } from "../settings/store.js";
-import { AuthService, SESSION_COOKIE } from "./auth.js";
+import { type AuthService, SESSION_COOKIE } from "./auth.js";
 import { enhanceJs } from "./enhance.js";
 import { availableLanguages, resolveLanguage, translator } from "./i18n.js";
 import { DashboardPage } from "./views/dashboard.js";
-import { DiscordPage, type BotGroupValues, type WebhookGroupValues } from "./views/discord.js";
+import { type BotGroupValues, DiscordPage, type WebhookGroupValues } from "./views/discord.js";
 import { LoginPage } from "./views/login.js";
 import { PlayersPage } from "./views/players.js";
 import { SettingsPage } from "./views/settings.js";
@@ -303,7 +303,8 @@ export function createApp(config: CompanionConfig, version: string, deps: AppDep
         statusChannelId: overrides.statusChannelId ?? "",
         logsChannelId: overrides.logsChannelId ?? "",
         adminChannelId: overrides.adminChannelId ?? "",
-        updateIntervalSeconds: overrides.updateIntervalSeconds !== undefined ? String(overrides.updateIntervalSeconds) : "",
+        updateIntervalSeconds:
+          overrides.updateIntervalSeconds !== undefined ? String(overrides.updateIntervalSeconds) : "",
         presenceEnabled: runtime.presenceEnabled(),
         commandsEnabled: runtime.commandsEnabled(),
         envStatusChannelId: base.channelId,
@@ -331,7 +332,8 @@ export function createApp(config: CompanionConfig, version: string, deps: AppDep
       const overrides = discordSettings.store.get().discord ?? {};
       return {
         webhookUrl: overrides.webhookUrl ?? "",
-        updateIntervalSeconds: overrides.updateIntervalSeconds !== undefined ? String(overrides.updateIntervalSeconds) : "",
+        updateIntervalSeconds:
+          overrides.updateIntervalSeconds !== undefined ? String(overrides.updateIntervalSeconds) : "",
         envWebhookUrl: discordSettings.base.webhookUrl,
         envUpdateIntervalSeconds: String(discordSettings.base.updateIntervalSeconds),
       };

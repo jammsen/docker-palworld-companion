@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import type { CompanionConfig } from "../config.js";
 import { EventLogWriter } from "../eventlog.js";
-import { mergeEvents, parseEventLog, serverStateEvents, type EventSource, type ServerEvent } from "../events.js";
+import { type EventSource, mergeEvents, parseEventLog, type ServerEvent, serverStateEvents } from "../events.js";
 import { log } from "../logger.js";
 import type { GameMetrics, GamePlayer, PalworldClient } from "../palworld/client.js";
 import { readServerNameFromIni } from "../palworld/ini.js";

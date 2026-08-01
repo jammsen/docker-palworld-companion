@@ -1,4 +1,4 @@
-import { cpuUsagePercent, readMemInfo, readProcStat, type CpuCoreSample } from "./proc.js";
+import { type CpuCoreSample, cpuUsagePercent, readMemInfo, readProcStat } from "./proc.js";
 
 export interface RamUsage {
   usedBytes: number;

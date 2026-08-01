@@ -33,8 +33,6 @@ export interface InteractionLike {
   editReply(payload: { content: string }): Promise<unknown>;
 }
 
-const MODERATION_COMMANDS: ReadonlySet<string> = new Set(["kick", "ban", "unban", "restart"]);
-
 // Returns a refusal message, or null when the action may proceed.
 // Two trust models:
 // - Admin channel configured: whoever can use the command IN that channel may
@@ -79,11 +77,16 @@ export async function handleInteraction(deps: CommandDeps, interaction: Interact
     switch (interaction.commandName) {
       case "status": {
         const snapshot = await deps.collector.getFresh(SNAPSHOT_MAX_AGE_MS);
-        const card = buildStatusCard(snapshot, snapshot.serverUp ? "online" : "starting", snapshot.serverName || deps.fallbackServerName, {
-          platformEmoji: deps.discord.platformEmoji,
-          eventEmoji: deps.discord.eventEmoji,
-          eventAmount: deps.discord.eventAmount,
-        });
+        const card = buildStatusCard(
+          snapshot,
+          snapshot.serverUp ? "online" : "starting",
+          snapshot.serverName || deps.fallbackServerName,
+          {
+            platformEmoji: deps.discord.platformEmoji,
+            eventEmoji: deps.discord.eventEmoji,
+            eventAmount: deps.discord.eventAmount,
+          },
+        );
         await interaction.reply({ embeds: card.embeds });
         return;
       }
@@ -94,7 +97,8 @@ export async function handleInteraction(deps: CommandDeps, interaction: Interact
           return;
         }
         const lines = snapshot.players.map(
-          (player) => `**${sanitizeName(player.name)}** · Lv ${player.level} · ${player.ping.toFixed(0)} ms · \`${player.userId}\``,
+          (player) =>
+            `**${sanitizeName(player.name)}** · Lv ${player.level} · ${player.ping.toFixed(0)} ms · \`${player.userId}\``,
         );
         await interaction.reply({ content: `**Players online (${snapshot.players.length}):**\n${lines.join("\n")}` });
         return;
@@ -107,12 +111,20 @@ export async function handleInteraction(deps: CommandDeps, interaction: Interact
           return;
         }
         const userId = interaction.options.getString("user_id") ?? "";
-        const reason = interaction.options.getString("reason") ?? `You have been ${interaction.commandName === "kick" ? "kicked" : "banned"}.`;
-        const action = interaction.commandName === "kick" ? deps.palworld.kick.bind(deps.palworld) : deps.palworld.ban.bind(deps.palworld);
+        const reason =
+          interaction.options.getString("reason") ??
+          `You have been ${interaction.commandName === "kick" ? "kicked" : "banned"}.`;
+        const action =
+          interaction.commandName === "kick"
+            ? deps.palworld.kick.bind(deps.palworld)
+            : deps.palworld.ban.bind(deps.palworld);
         const target = displayName(deps, userId);
         await action(userId, reason);
         await recordAdminEvent(deps, interaction.commandName, target, interaction.user.username);
-        await interaction.reply({ content: `\`${sanitizeName(target)}\` ${interaction.commandName === "kick" ? "kicked" : "banned"}.`, flags: EPHEMERAL });
+        await interaction.reply({
+          content: `\`${sanitizeName(target)}\` ${interaction.commandName === "kick" ? "kicked" : "banned"}.`,
+          flags: EPHEMERAL,
+        });
         return;
       }
       case "unban": {
@@ -149,8 +161,8 @@ export async function handleInteraction(deps: CommandDeps, interaction: Interact
     // An interaction failure must never kill the companion
     log.warn(`>>> Discord command /${interaction.commandName} failed: ${String(error)}`);
     const message = "The game server REST API is unreachable - try again when the server is up.";
-    await interaction.reply({ content: message, flags: EPHEMERAL }).catch(() =>
-      interaction.editReply({ content: message }).catch(() => undefined),
-    );
+    await interaction
+      .reply({ content: message, flags: EPHEMERAL })
+      .catch(() => interaction.editReply({ content: message }).catch(() => undefined));
   }
 }

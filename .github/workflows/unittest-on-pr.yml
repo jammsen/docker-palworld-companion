@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   unit-test-companion:
-    name: Companion - Typecheck, unit tests and build
+    name: Companion - Typecheck, lint, unit tests and build
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
@@ -30,6 +30,9 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
 
       - name: Unit tests
         run: npm test

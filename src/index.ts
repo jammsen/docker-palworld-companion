@@ -1,7 +1,7 @@
-import { serve } from "@hono/node-server";
 import { lchownSync, mkdirSync, readdirSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { serve } from "@hono/node-server";
 import { parseConfig } from "./config.js";
 import { log, setDebug } from "./logger.js";
 import { createApp, createHealthApp } from "./web/app.js";
@@ -104,7 +104,12 @@ if (!config.panel && !config.discord) {
     await runtimeStore.load();
     discordSettings =
       config.discord.mode === "bot"
-        ? { mode: "bot", store: runtimeStore, base: config.discord, runtime: createDiscordRuntime(config.discord, runtimeStore) }
+        ? {
+            mode: "bot",
+            store: runtimeStore,
+            base: config.discord,
+            runtime: createDiscordRuntime(config.discord, runtimeStore),
+          }
         : {
             mode: "webhook",
             store: runtimeStore,
@@ -133,7 +138,8 @@ if (!config.panel && !config.discord) {
       logsChannelId: process.env.DISCORD_LOGS_CHANNEL_ID ?? "",
       adminChannelId: process.env.DISCORD_ADMIN_CHANNEL_ID ?? "",
       updateIntervalSeconds: process.env.DISCORD_STATUS_UPDATE_INTERVAL || "30",
-      presenceEnabled: process.env.DISCORD_PRESENCE_ENABLED === undefined ? true : boolEnv(process.env.DISCORD_PRESENCE_ENABLED),
+      presenceEnabled:
+        process.env.DISCORD_PRESENCE_ENABLED === undefined ? true : boolEnv(process.env.DISCORD_PRESENCE_ENABLED),
       commandsEnabled: boolEnv(process.env.DISCORD_COMMANDS_ENABLED),
       gameserverWebhookEnabled: boolEnv(process.env.WEBHOOK_ENABLED),
     };
@@ -142,7 +148,8 @@ if (!config.panel && !config.discord) {
     app = createHealthApp(config, VERSION);
   }
   const server = serve({ fetch: app.fetch, port: config.listenPort, hostname: "0.0.0.0" }, (info) => {
-    if (config.panel) log.success(`>>> Web panel listening on port ${info.port} - open http://<your-server-ip>:${info.port}`);
+    if (config.panel)
+      log.success(`>>> Web panel listening on port ${info.port} - open http://<your-server-ip>:${info.port}`);
     else log.info(`>>> Health endpoint listening on port ${info.port} (panel disabled)`);
   });
   shutdownHooks.push(() => new Promise<void>((resolve) => server.close(() => resolve())));
@@ -154,11 +161,14 @@ if (!config.panel && !config.discord) {
       const { DiscordBot } = await import("./discord/bot.js");
       const { createBotTransport } = await import("./discord/bot-transport.js");
       const { isAdminActionEvent } = await import("./events.js");
-      if (discordSettings?.mode !== "bot") throw new Error("bot mode wiring requires the runtime settings created above");
+      if (discordSettings?.mode !== "bot")
+        throw new Error("bot mode wiring requires the runtime settings created above");
       const runtime = discordSettings.runtime;
 
-      let commands;
-      let onInteraction;
+      let commands: typeof import("./discord/commands/definitions.js").COMMAND_DEFINITIONS | undefined;
+      let onInteraction:
+        | ((interaction: import("./discord/commands/handlers.js").InteractionLike) => Promise<void>)
+        | undefined;
       if (runtime.commandsEnabled() && discord.guildId) {
         const { COMMAND_DEFINITIONS } = await import("./discord/commands/definitions.js");
         const { handleInteraction } = await import("./discord/commands/handlers.js");
@@ -225,7 +235,8 @@ if (!config.panel && !config.discord) {
         await bot.destroy();
       });
     } else {
-      if (discordSettings?.mode !== "webhook") throw new Error("webhook mode wiring requires the runtime settings created above");
+      if (discordSettings?.mode !== "webhook")
+        throw new Error("webhook mode wiring requires the runtime settings created above");
       const webhookRuntime = discordSettings.runtime;
       const { createWebhookTransport } = await import("./discord/webhook.js");
       // URL and interval through the runtime getters, so panel overrides

@@ -27,7 +27,10 @@ export interface DiscordStatusDeps {
 // Interval loop: collect a snapshot, render the card, publish (create-or-edit),
 // then feed the optional event relay and presence. Returns a stop function
 // that publishes a final "offline" card and closes the transport.
-export async function startDiscordStatus(config: CompanionConfig, deps: DiscordStatusDeps): Promise<() => Promise<void>> {
+export async function startDiscordStatus(
+  config: CompanionConfig,
+  deps: DiscordStatusDeps,
+): Promise<() => Promise<void>> {
   const discord = config.discord;
   if (!discord) throw new Error("startDiscordStatus called without Discord config");
 
@@ -80,7 +83,9 @@ export async function startDiscordStatus(config: CompanionConfig, deps: DiscordS
     if (!inFlight && !stopped) currentTick = tick();
   };
 
-  log.info(`>>> Discord status card enabled (${discord.mode} mode, update interval: ${discord.updateIntervalSeconds}s)`);
+  log.info(
+    `>>> Discord status card enabled (${discord.mode} mode, update interval: ${discord.updateIntervalSeconds}s)`,
+  );
   let intervalSeconds = deps.runtimeInterval?.() ?? discord.updateIntervalSeconds;
   let timer: ReturnType<typeof setInterval> | undefined;
   const rearmTimer = () => {

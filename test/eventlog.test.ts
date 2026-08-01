@@ -23,9 +23,7 @@ describe("EventLogWriter", () => {
     const filePath = join(dir, "companion-events.log");
     const writer = new EventLogWriter(filePath);
     // Concurrent appends must serialize - fire them all without awaiting in between
-    await Promise.all(
-      Array.from({ length: 201 }, (_, i) => writer.append({ at: i * 1000, type: "online" })),
-    );
+    await Promise.all(Array.from({ length: 201 }, (_, i) => writer.append({ at: i * 1000, type: "online" })));
     const lines = (await readFile(filePath, "utf8")).split("\n").filter((line) => line.length > 0);
     expect(lines).toHaveLength(100);
     expect(lines.at(-1)).toBe("200|online");

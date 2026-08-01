@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createWebhookTransport, type WebhookLike } from "../src/discord/webhook.js";
 import type { EmbedPayload } from "../src/discord/transport.js";
+import { createWebhookTransport, type WebhookLike } from "../src/discord/webhook.js";
 
 const PAYLOAD: EmbedPayload = { embeds: [{ title: "t", color: 1, fields: [] }] };
 

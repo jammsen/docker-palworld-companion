@@ -209,7 +209,9 @@ export function validateSettingValue(spec: SettingSpec, value: string): Validati
     case "bool":
       return value === "true" || value === "false" ? { ok: true } : { ok: false, reason: "must be true or false" };
     case "enum":
-      return spec.values?.includes(value) ? { ok: true } : { ok: false, reason: `must be one of: ${spec.values?.join(", ")}` };
+      return spec.values?.includes(value)
+        ? { ok: true }
+        : { ok: false, reason: `must be one of: ${spec.values?.join(", ")}` };
     case "int": {
       if (!/^-?\d+$/.test(value)) return { ok: false, reason: "must be an integer" };
       const parsed = Number.parseInt(value, 10);

@@ -52,7 +52,9 @@ describe("parseConfig", () => {
       WEBHOOK_URL: "https://discord.com/api/webhooks/1/abc",
     });
     expect(config.discord?.mode).toBe("webhook");
-    expect(config.discord?.mode === "webhook" && config.discord.webhookUrl).toBe("https://discord.com/api/webhooks/1/abc");
+    expect(config.discord?.mode === "webhook" && config.discord.webhookUrl).toBe(
+      "https://discord.com/api/webhooks/1/abc",
+    );
   });
 
   it("selects bot mode when a token and a valid channel id are set", () => {
@@ -131,12 +133,15 @@ describe("parseConfig", () => {
       DISCORD_STATUS_UPDATE_INTERVAL: "5",
     });
     expect(bot.discord?.updateIntervalSeconds).toBe(10);
-    expect(bot.discord?.mode === "bot" && parseConfig({
-      DISCORD_STATUS_ENABLED: "true",
-      DISCORD_BOT_TOKEN: "bot-secret",
-      DISCORD_STATUS_CHANNEL_ID: "123456789012345678",
-      DISCORD_STATUS_UPDATE_INTERVAL: "12",
-    }).discord?.updateIntervalSeconds).toBe(12);
+    expect(
+      bot.discord?.mode === "bot" &&
+        parseConfig({
+          DISCORD_STATUS_ENABLED: "true",
+          DISCORD_BOT_TOKEN: "bot-secret",
+          DISCORD_STATUS_CHANNEL_ID: "123456789012345678",
+          DISCORD_STATUS_UPDATE_INTERVAL: "12",
+        }).discord?.updateIntervalSeconds,
+    ).toBe(12);
   });
 
   it("disables the Discord card without any webhook URL or bot config", () => {
@@ -189,14 +194,17 @@ describe("parseConfig", () => {
   });
 
   it("clamps the event amount to the stored-history range", () => {
-    const base = { DISCORD_STATUS_ENABLED: "true", DISCORD_STATUS_WEBHOOK_URL: "https://discord.com/api/webhooks/1/abc" };
+    const base = {
+      DISCORD_STATUS_ENABLED: "true",
+      DISCORD_STATUS_WEBHOOK_URL: "https://discord.com/api/webhooks/1/abc",
+    };
     expect(parseConfig({ ...base }).discord?.eventAmount).toBe(25);
     expect(parseConfig({ ...base, DISCORD_STATUS_EVENT_AMOUNT: "10" }).discord?.eventAmount).toBe(10);
     expect(parseConfig({ ...base, DISCORD_STATUS_EVENT_AMOUNT: "999" }).discord?.eventAmount).toBe(50);
     expect(parseConfig({ ...base, DISCORD_STATUS_EVENT_AMOUNT: "0" }).discord?.eventAmount).toBe(1);
-    expect(parseConfig({ ...base, DISCORD_STATUS_EVENT_AMOUNT: "999" }).warnings.some((w) => w.includes("EVENT_AMOUNT"))).toBe(
-      true,
-    );
+    expect(
+      parseConfig({ ...base, DISCORD_STATUS_EVENT_AMOUNT: "999" }).warnings.some((w) => w.includes("EVENT_AMOUNT")),
+    ).toBe(true);
   });
 
   it("clamps the Discord update interval to the safety minimum", () => {

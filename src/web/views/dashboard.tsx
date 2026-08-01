@@ -1,5 +1,5 @@
-import { formatDuration, formatGiB, formatUtcTimestamp } from "../../format.js";
 import type { ServerEvent } from "../../events.js";
+import { formatDuration, formatGiB, formatUtcTimestamp } from "../../format.js";
 import type { StatusSnapshot } from "../../metrics/collector.js";
 import { Layout } from "./layout.js";
 
@@ -96,7 +96,10 @@ export function DashboardPage({ t, language, snapshot, csrf }: DashboardPageProp
           {game ? (
             <div class="tiles tiles-two">
               <StatTile label={`⏱️ ${t("status.uptime")}`} value={formatDuration(game.uptime)} />
-              <StatTile label={`👥 ${t("status.population")}`} value={`${game.currentplayernum} / ${game.maxplayernum}`} />
+              <StatTile
+                label={`👥 ${t("status.population")}`}
+                value={`${game.currentplayernum} / ${game.maxplayernum}`}
+              />
               <StatTile label={`⏲️ ${t("status.frametime")}`} value={`${game.serverframetime.toFixed(1)} ms`} />
               <StatTile label={`⚡ ${t("status.fps")}`} value={String(game.serverfps)} />
               <StatTile label={`📅 ${t("status.day")}`} value={String(game.days)} />
@@ -115,8 +118,7 @@ export function DashboardPage({ t, language, snapshot, csrf }: DashboardPageProp
                 .reverse()
                 .map((event) => (
                   <li>
-                    <span class="event-time">{formatUtcTimestamp(event.at, "time")}</span>{" "}
-                    {eventLine(event, t)}
+                    <span class="event-time">{formatUtcTimestamp(event.at, "time")}</span> {eventLine(event, t)}
                   </li>
                 ))}
             </ul>

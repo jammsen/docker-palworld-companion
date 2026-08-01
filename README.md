@@ -145,6 +145,7 @@ Any variable left empty keeps its unicode default. The web dashboard keeps the u
 npm ci
 npm run dev    # tsx watch, loads dev/dev.env (panel on :8213, GAME_ROOT=./tmp-gameroot)
 npm run mock   # mock Palworld REST API server for local development
+npm run lint   # Biome - lint + format check (lint:fix applies safe fixes)
 npm test
 npm run build  # bundle to dist/companion.mjs
 ```

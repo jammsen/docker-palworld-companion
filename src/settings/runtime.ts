@@ -59,12 +59,14 @@ export class RuntimeSettingsStore {
   async setDiscord(overrides: DiscordRuntimeOverrides): Promise<void> {
     this.settings = { ...this.settings, discord: overrides };
     const snapshot = JSON.stringify(this.settings, null, 2);
-    this.writeQueue = this.writeQueue.catch(() => undefined).then(async () => {
-      await mkdir(this.dataDir, { recursive: true });
-      const tmpPath = `${this.filePath}.tmp`;
-      await writeFile(tmpPath, snapshot, "utf8");
-      await rename(tmpPath, this.filePath);
-    });
+    this.writeQueue = this.writeQueue
+      .catch(() => undefined)
+      .then(async () => {
+        await mkdir(this.dataDir, { recursive: true });
+        const tmpPath = `${this.filePath}.tmp`;
+        await writeFile(tmpPath, snapshot, "utf8");
+        await rename(tmpPath, this.filePath);
+      });
     await this.writeQueue;
   }
 }

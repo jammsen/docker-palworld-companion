@@ -1,5 +1,5 @@
-import { build } from "esbuild";
 import { mkdir, readFile, stat } from "node:fs/promises";
+import { build } from "esbuild";
 
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
 
@@ -31,4 +31,6 @@ await build({
 });
 
 const bundleBytes = (await stat("dist/companion.mjs")).size;
-console.log(`palworld-companion ${pkg.version} bundled to dist/companion.mjs (${(bundleBytes / 1024 / 1024).toFixed(1)} MB)`);
+console.log(
+  `palworld-companion ${pkg.version} bundled to dist/companion.mjs (${(bundleBytes / 1024 / 1024).toFixed(1)} MB)`,
+);

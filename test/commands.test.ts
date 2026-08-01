@@ -1,9 +1,14 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
-import { parseConfig, type DiscordBotMode } from "../src/config.js";
-import { EPHEMERAL, handleInteraction, type CommandDeps, type InteractionLike } from "../src/discord/commands/handlers.js";
+import { describe, expect, it } from "vitest";
+import { type DiscordBotMode, parseConfig } from "../src/config.js";
+import {
+  type CommandDeps,
+  EPHEMERAL,
+  handleInteraction,
+  type InteractionLike,
+} from "../src/discord/commands/handlers.js";
 import { MetricsCollector } from "../src/metrics/collector.js";
 import { PalworldClient } from "../src/palworld/client.js";
 import { StateStore } from "../src/state.js";
@@ -29,7 +34,13 @@ async function makeDeps(overrides: Partial<DiscordBotMode> = {}): Promise<Comman
     return new Response(JSON.stringify({}), { status: 200 });
   });
   const collector = new MetricsCollector(config, palworld, state, new HostProcMetricsSource());
-  return { collector, palworld, discord: { ...config.discord, ...overrides }, fallbackServerName: "Test", palworldCalls };
+  return {
+    collector,
+    palworld,
+    discord: { ...config.discord, ...overrides },
+    fallbackServerName: "Test",
+    palworldCalls,
+  };
 }
 
 function makeInteraction(
@@ -150,9 +161,12 @@ describe("handleInteraction", () => {
     const deps = await makeDeps();
     const brokenDeps = {
       ...deps,
-      palworld: new PalworldClient({ enabled: true, host: "127.0.0.1", port: 1, timeoutSeconds: 1, adminPassword: "x" }, () => {
-        throw new Error("connect ECONNREFUSED");
-      }),
+      palworld: new PalworldClient(
+        { enabled: true, host: "127.0.0.1", port: 1, timeoutSeconds: 1, adminPassword: "x" },
+        () => {
+          throw new Error("connect ECONNREFUSED");
+        },
+      ),
     };
     const interaction = makeInteraction("kick", {
       options: { getString: (name) => (name === "user_id" ? "steam_123" : null) },

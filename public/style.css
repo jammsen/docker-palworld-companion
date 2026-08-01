@@ -370,6 +370,7 @@ select {
   font: inherit;
 }
 
+/* biome-ignore lint/style/noDescendingSpecificity: selector order kept as-is - reordering grown CSS risks visual regressions */
 button[type="submit"] {
   background: var(--accent-dim);
   border: 1px solid var(--accent);

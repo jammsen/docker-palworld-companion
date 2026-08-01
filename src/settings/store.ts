@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { normalizeSettingValue, settingsSchema, validateSettingValue, type SettingSpec } from "./schema.js";
+import { normalizeSettingValue, type SettingSpec, settingsSchema, validateSettingValue } from "./schema.js";
 
 export type Provenance = "default" | "env" | "override";
 
@@ -57,12 +57,14 @@ export class SettingsStore {
     const content = `${OVERRIDES_HEADER}${lines.join("\n")}${lines.length > 0 ? "\n" : ""}`;
     // Recover a rejected chain before appending so a transient error doesn't
     // permanently break every future write.
-    this.writeQueue = this.writeQueue.catch(() => {}).then(async () => {
-      await mkdir(this.dataDir, { recursive: true });
-      const tmpPath = `${this.filePath}.tmp`;
-      await writeFile(tmpPath, content, "utf8");
-      await rename(tmpPath, this.filePath);
-    });
+    this.writeQueue = this.writeQueue
+      .catch(() => {})
+      .then(async () => {
+        await mkdir(this.dataDir, { recursive: true });
+        const tmpPath = `${this.filePath}.tmp`;
+        await writeFile(tmpPath, content, "utf8");
+        await rename(tmpPath, this.filePath);
+      });
     await this.writeQueue;
   }
 
@@ -91,7 +93,8 @@ export class SettingsStore {
       if (override !== undefined && !spec.excluded) {
         return { spec, value: override, envValue, provenance: "override" as const };
       }
-      const provenance: Provenance = this.env[spec.key] !== undefined && this.env[spec.key] !== spec.default ? "env" : "default";
+      const provenance: Provenance =
+        this.env[spec.key] !== undefined && this.env[spec.key] !== spec.default ? "env" : "default";
       return { spec, value: envValue, envValue, provenance };
     });
   }

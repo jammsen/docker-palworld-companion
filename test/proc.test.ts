@@ -40,7 +40,9 @@ describe("cpuUsagePercent", () => {
 
 describe("parseMemInfo", () => {
   it("extracts total and available memory in bytes", () => {
-    const memInfo = parseMemInfo("MemTotal:       16384000 kB\nMemFree:         1000000 kB\nMemAvailable:    8192000 kB\n");
+    const memInfo = parseMemInfo(
+      "MemTotal:       16384000 kB\nMemFree:         1000000 kB\nMemAvailable:    8192000 kB\n",
+    );
     expect(memInfo.totalBytes).toBe(16384000 * 1024);
     expect(memInfo.availableBytes).toBe(8192000 * 1024);
   });

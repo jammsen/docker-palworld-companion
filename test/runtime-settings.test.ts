@@ -96,7 +96,10 @@ describe("createWebhookRuntime", () => {
     expect(runtime.webhookUrl()).toBe("https://discord.com/api/webhooks/111/env-token");
     expect(runtime.updateIntervalSeconds()).toBe(30);
 
-    await store.setDiscord({ webhookUrl: "https://discord.com/api/webhooks/222/panel-token", updateIntervalSeconds: 20 });
+    await store.setDiscord({
+      webhookUrl: "https://discord.com/api/webhooks/222/panel-token",
+      updateIntervalSeconds: 20,
+    });
     expect(runtime.webhookUrl()).toBe("https://discord.com/api/webhooks/222/panel-token");
     expect(runtime.updateIntervalSeconds()).toBe(20);
 

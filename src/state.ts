@@ -59,13 +59,15 @@ export class StateStore {
     // Serialize writes; atomic tmp+rename so bash/readers never see a torn file.
     // Recover a rejected chain before appending so a transient error doesn't
     // permanently break every future write.
-    this.writeQueue = this.writeQueue.catch(() => {}).then(async () => {
-      await mkdir(this.dataDir, { recursive: true, mode: 0o700 });
-      const tmpPath = `${this.filePath}.tmp`;
-      // 0600: the file holds the session-signing secret; rename keeps the mode
-      await writeFile(tmpPath, snapshot, { encoding: "utf8", mode: 0o600 });
-      await rename(tmpPath, this.filePath);
-    });
+    this.writeQueue = this.writeQueue
+      .catch(() => {})
+      .then(async () => {
+        await mkdir(this.dataDir, { recursive: true, mode: 0o700 });
+        const tmpPath = `${this.filePath}.tmp`;
+        // 0600: the file holds the session-signing secret; rename keeps the mode
+        await writeFile(tmpPath, snapshot, { encoding: "utf8", mode: 0o600 });
+        await rename(tmpPath, this.filePath);
+      });
     await this.writeQueue;
   }
 }

@@ -134,7 +134,17 @@ function CheckboxRow({
 }
 
 /** Active group: form with save/reset. Inactive group: plain read-only table */
-function GroupShell({ t, csrf, active, children }: { t: (key: string) => string; csrf: string; active: boolean; children?: Child }) {
+function GroupShell({
+  t,
+  csrf,
+  active,
+  children,
+}: {
+  t: (key: string) => string;
+  csrf: string;
+  active: boolean;
+  children?: Child;
+}) {
   if (!active) {
     return (
       <table class="settings-table">
@@ -182,12 +192,51 @@ function BotGroup({
       {active && saved ? <p class="status-banner online">✅ {t("settings.discord.saved")}</p> : null}
       <p class="hint">{active ? t("settings.discord.note") : t("settings.discord.botInactive")}</p>
       <GroupShell t={t} csrf={csrf} active={active}>
-        <TextRow t={t} name="statusChannelId" labelKey="settings.discord.statusChannel" value={values.statusChannelId} placeholder={values.envStatusChannelId} active={active} />
-        <TextRow t={t} name="logsChannelId" labelKey="settings.discord.logsChannel" value={values.logsChannelId} placeholder={values.envLogsChannelId} active={active} />
-        <TextRow t={t} name="adminChannelId" labelKey="settings.discord.adminChannel" value={values.adminChannelId} placeholder={values.envAdminChannelId} active={active} />
-        <IntervalRow t={t} value={values.updateIntervalSeconds} placeholder={values.envUpdateIntervalSeconds} min={10} active={active} />
-        <CheckboxRow t={t} name="presenceEnabled" labelKey="settings.discord.presence" checked={values.presenceEnabled} active={active} />
-        <CheckboxRow t={t} name="commandsEnabled" labelKey="settings.discord.commands" checked={values.commandsEnabled} active={active} />
+        <TextRow
+          t={t}
+          name="statusChannelId"
+          labelKey="settings.discord.statusChannel"
+          value={values.statusChannelId}
+          placeholder={values.envStatusChannelId}
+          active={active}
+        />
+        <TextRow
+          t={t}
+          name="logsChannelId"
+          labelKey="settings.discord.logsChannel"
+          value={values.logsChannelId}
+          placeholder={values.envLogsChannelId}
+          active={active}
+        />
+        <TextRow
+          t={t}
+          name="adminChannelId"
+          labelKey="settings.discord.adminChannel"
+          value={values.adminChannelId}
+          placeholder={values.envAdminChannelId}
+          active={active}
+        />
+        <IntervalRow
+          t={t}
+          value={values.updateIntervalSeconds}
+          placeholder={values.envUpdateIntervalSeconds}
+          min={10}
+          active={active}
+        />
+        <CheckboxRow
+          t={t}
+          name="presenceEnabled"
+          labelKey="settings.discord.presence"
+          checked={values.presenceEnabled}
+          active={active}
+        />
+        <CheckboxRow
+          t={t}
+          name="commandsEnabled"
+          labelKey="settings.discord.commands"
+          checked={values.commandsEnabled}
+          active={active}
+        />
       </GroupShell>
     </section>
   );
@@ -214,14 +263,37 @@ function WebhookGroup({
       {active && saved ? <p class="status-banner online">✅ {t("settings.discord.saved")}</p> : null}
       <p class="hint">{active ? t("settings.discord.noteWebhook") : t("settings.discord.webhookInactive")}</p>
       <GroupShell t={t} csrf={csrf} active={active}>
-        <TextRow t={t} name="webhookUrl" labelKey="settings.discord.webhookUrl" value={values.webhookUrl} placeholder={values.envWebhookUrl} active={active} />
-        <IntervalRow t={t} value={values.updateIntervalSeconds} placeholder={values.envUpdateIntervalSeconds} min={15} active={active} />
+        <TextRow
+          t={t}
+          name="webhookUrl"
+          labelKey="settings.discord.webhookUrl"
+          value={values.webhookUrl}
+          placeholder={values.envWebhookUrl}
+          active={active}
+        />
+        <IntervalRow
+          t={t}
+          value={values.updateIntervalSeconds}
+          placeholder={values.envUpdateIntervalSeconds}
+          min={15}
+          active={active}
+        />
       </GroupShell>
     </section>
   );
 }
 
-export function DiscordPage({ t, language, csrf, activeMode, bot, webhook, gameserverWebhookEnabled, saved, errors }: DiscordPageProps) {
+export function DiscordPage({
+  t,
+  language,
+  csrf,
+  activeMode,
+  bot,
+  webhook,
+  gameserverWebhookEnabled,
+  saved,
+  errors,
+}: DiscordPageProps) {
   return (
     <Layout t={t} language={language} activeNav="discord" csrf={csrf}>
       <h1>💬 {t("nav.discord")}</h1>
@@ -239,7 +311,9 @@ export function DiscordPage({ t, language, csrf, activeMode, bot, webhook, games
       <BotGroup t={t} csrf={csrf} values={bot} active={activeMode === "bot"} saved={saved} />
       <WebhookGroup t={t} csrf={csrf} values={webhook} active={activeMode === "webhook"} saved={saved} />
       <p class="hint">
-        {gameserverWebhookEnabled ? t("settings.discord.gameserverWebhookOn") : t("settings.discord.gameserverWebhookOff")}
+        {gameserverWebhookEnabled
+          ? t("settings.discord.gameserverWebhookOn")
+          : t("settings.discord.gameserverWebhookOff")}
       </p>
     </Layout>
   );
