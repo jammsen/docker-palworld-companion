@@ -87,6 +87,21 @@ async function makeWebhookBase() {
   return { dir, base: config.discord };
 }
 
+describe("setEventEmojiTokens", () => {
+  it("persists the /setup-icons result independently of the discord overrides", async () => {
+    const { dir } = await makeBase();
+    const store = new RuntimeSettingsStore(dir);
+    await store.load();
+    await store.setDiscord({ presenceEnabled: false });
+    await store.setEventEmojiTokens("modern-slate", { join: "<:pw_join:1>", ban: "<:pw_ban:2>" });
+    const reloaded = new RuntimeSettingsStore(dir);
+    await reloaded.load();
+    expect(reloaded.get().iconSet).toBe("modern-slate");
+    expect(reloaded.get().eventEmojiTokens).toEqual({ join: "<:pw_join:1>", ban: "<:pw_ban:2>" });
+    expect(reloaded.get().discord?.presenceEnabled).toBe(false);
+  });
+});
+
 describe("createWebhookRuntime", () => {
   it("overrides URL and interval, empty/absent falls back to env", async () => {
     const { dir, base } = await makeWebhookBase();

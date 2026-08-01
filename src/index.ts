@@ -171,14 +171,23 @@ if (!config.panel && !config.discord) {
       if (discordSettings?.mode !== "bot")
         throw new Error("bot mode wiring requires the runtime settings created above");
       const runtime = discordSettings.runtime;
+      const runtimeStore = discordSettings.store;
+      // /setup-icons tokens win over env tokens, which win over code defaults
+      const effectiveEventEmoji = () => ({
+        ...discord.eventEmoji,
+        ...(runtimeStore.get().eventEmojiTokens ?? {}),
+      });
 
       let commands: typeof import("./discord/commands/definitions.js").COMMAND_DEFINITIONS | undefined;
       let onInteraction:
         | ((interaction: import("./discord/commands/handlers.js").InteractionLike) => Promise<void>)
         | undefined;
+      let onAutocomplete:
+        | ((interaction: import("./discord/commands/handlers.js").AutocompleteLike) => Promise<void>)
+        | undefined;
       if (runtime.commandsEnabled() && discord.guildId) {
         const { COMMAND_DEFINITIONS } = await import("./discord/commands/definitions.js");
-        const { handleInteraction } = await import("./discord/commands/handlers.js");
+        const { handleAutocomplete, handleInteraction } = await import("./discord/commands/handlers.js");
         const deps = {
           collector,
           palworld: client,
@@ -187,10 +196,26 @@ if (!config.panel && !config.discord) {
           // Same hot-apply getter as the audit relay - a panel-set admin
           // channel must restrict commands too, not only route the audit
           adminChannelId: () => runtime.adminChannelId(),
+          // /setup-icons: the lambdas bind `bot` lazily - it is constructed
+          // below and interactions can only arrive after its gateway connects
+          iconSetup: {
+            rest: {
+              get: (route: `/${string}`) => bot.rest.get(route),
+              post: (route: `/${string}`, options: { body: unknown }) => bot.rest.post(route, options),
+              patch: (route: `/${string}`, options: { body: unknown }) => bot.rest.patch(route, options),
+              delete: (route: `/${string}`) => bot.rest.delete(route),
+            },
+            applicationId: () => bot.applicationId(),
+            iconsDir: config.iconsDir,
+            saveTokens: (iconSet: string, tokens: Record<string, string>) =>
+              runtimeStore.setEventEmojiTokens(iconSet, tokens),
+          },
         };
         commands = COMMAND_DEFINITIONS;
         onInteraction = (interaction: import("./discord/commands/handlers.js").InteractionLike) =>
           handleInteraction(deps, interaction);
+        onAutocomplete = (interaction: import("./discord/commands/handlers.js").AutocompleteLike) =>
+          handleAutocomplete(deps, interaction);
       } else if (runtime.commandsEnabled()) {
         log.warn(
           ">>> Slash commands are enabled but DISCORD_GUILD_ID is missing - commands stay off (set your server id and restart the companion)",
@@ -200,7 +225,13 @@ if (!config.panel && !config.discord) {
           ">>> Slash commands are disabled (DISCORD_COMMANDS_ENABLED / panel toggle) - enabling them requires a companion restart",
         );
       }
-      const bot = new DiscordBot({ botToken: discord.botToken, commands, guildId: discord.guildId, onInteraction });
+      const bot = new DiscordBot({
+        botToken: discord.botToken,
+        commands,
+        guildId: discord.guildId,
+        onInteraction,
+        onAutocomplete,
+      });
       await bot.start(); // best-effort gateway; REST features work regardless
 
       const transport = createBotTransport({
@@ -218,7 +249,7 @@ if (!config.panel && !config.discord) {
       const eventRelay = new EventRelay({
         rest: bot.rest,
         channelId: () => runtime.logsChannelId(),
-        eventEmoji: discord.eventEmoji,
+        eventEmoji: effectiveEventEmoji,
         getCursor: () => state.get().discordLogsLastEventKey,
         setCursor: (key) => state.update({ discordLogsLastEventKey: key }),
         // Admin actions live in the admin channel (with actor detail) when
@@ -228,7 +259,7 @@ if (!config.panel && !config.discord) {
       const auditRelay = new EventRelay({
         rest: bot.rest,
         channelId: () => runtime.adminChannelId(),
-        eventEmoji: discord.eventEmoji,
+        eventEmoji: effectiveEventEmoji,
         getCursor: () => state.get().discordAdminLastEventKey,
         setCursor: (key) => state.update({ discordAdminLastEventKey: key }),
         filter: isAdminActionEvent,
@@ -242,6 +273,7 @@ if (!config.panel && !config.discord) {
         eventRelay,
         auditRelay,
         runtimeInterval: () => runtime.updateIntervalSeconds(),
+        eventEmoji: effectiveEventEmoji,
       });
       // ONE composite hook: hooks run concurrently, so only composition
       // guarantees the final offline edit happens before the gateway dies

@@ -26,6 +26,10 @@ export interface DiscordRuntimeOverrides {
 
 export interface CompanionRuntimeSettings {
   discord?: DiscordRuntimeOverrides;
+  /** Set by /setup-icons: uploaded application-emoji tokens per event type */
+  eventEmojiTokens?: Record<string, string>;
+  /** The icon set the tokens came from - informational */
+  iconSet?: string;
 }
 
 // companion-settings.json on the companion data volume - atomic writes like
@@ -55,9 +59,19 @@ export class RuntimeSettingsStore {
     return this.settings;
   }
 
+  /** Replace the /setup-icons result as a whole (one upload = one consistent set) */
+  async setEventEmojiTokens(iconSet: string, tokens: Record<string, string>): Promise<void> {
+    this.settings = { ...this.settings, iconSet, eventEmojiTokens: tokens };
+    await this.persist();
+  }
+
   /** Replace the discord override group as a whole (the panel form posts all fields) */
   async setDiscord(overrides: DiscordRuntimeOverrides): Promise<void> {
     this.settings = { ...this.settings, discord: overrides };
+    await this.persist();
+  }
+
+  private async persist(): Promise<void> {
     const snapshot = JSON.stringify(this.settings, null, 2);
     this.writeQueue = this.writeQueue
       .catch(() => undefined)

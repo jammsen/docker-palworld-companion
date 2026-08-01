@@ -9,7 +9,10 @@ COPY . ./
 RUN npm run typecheck \
     && npm run lint \
     && npm test \
-    && npm run build
+    && npm run build \
+    # Icon sets ship in the image for /setup-icons - prune everything that is
+    # not a PNG (READMEs, generator) before the final-stage copy
+    && find icons -type f ! -name "*.png" -delete
 
 FROM node:26-bookworm-slim@sha256:9e6f9357d371591e32ab6f2d8a26d63bdd0d17c29eee3f4f3e7e454d9634bf73
 
@@ -23,6 +26,9 @@ ENV GAME_ROOT=/palworld \
     COMPANION_DATA_DIR=/data
 
 COPY --from=build /build/dist/companion.mjs /companion/companion.mjs
+# ~1.7 MB of 128x128 PNGs: the shipped icon sets, uploaded as application
+# emojis by the /setup-icons slash command
+COPY --from=build /build/icons /companion/icons
 
 RUN mkdir -p "${COMPANION_DATA_DIR}" \
     && chown node:node "${COMPANION_DATA_DIR}" \

@@ -27,6 +27,8 @@ export interface CompanionConfig {
    * its own. Export falls back to schema order when the file is absent.
    */
   envTemplateFile: string;
+  /** Shipped icon sets (bot mode /setup-icons uploads them as application emojis) */
+  iconsDir: string;
   /** Reason strings for features that were requested but could not be enabled */
   warnings: string[];
 }
@@ -123,6 +125,9 @@ const DEFAULT_EVENT_EMOJI: Partial<Record<string, string>> = {
   restart: "<:pal_sl_restart:1528897601775210536>",
   backup: "<:pal_sl_backup:1528897223025492132>",
   settings: "<:pal_sl_settings:1528897681290956951>",
+  kick: "<:pal_sl_kick:1533116759601840128>",
+  ban: "<:pal_sl_ban:1533116797493051592>",
+  unban: "<:pal_sl_unban:1533116841772449932>",
 };
 
 function envBool(value: string | undefined): boolean {
@@ -315,6 +320,7 @@ export function parseConfig(env: Record<string, string | undefined>): CompanionC
     gameSettingsFile: env.GAME_SETTINGS_FILE || `${gameRoot}/Pal/Saved/Config/LinuxServer/PalWorldSettings.ini`,
     banlistFile: `${env.GAME_SAVE_PATH || `${gameRoot}/Pal/Saved`}/SaveGames/banlist.txt`,
     envTemplateFile: env.COMPANION_ENV_TEMPLATE || `${gameRoot}/default.env.template`,
+    iconsDir: env.COMPANION_ICONS_DIR || "/companion/icons",
     warnings,
   };
 }

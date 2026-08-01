@@ -13,7 +13,8 @@ export interface EventRelayOptions {
   rest: RestLike;
   /** Getter: undefined disables the relay (the panel can hot-toggle the channel) */
   channelId: () => string | undefined;
-  eventEmoji: Partial<Record<string, string>>;
+  /** Static map, or a getter so /setup-icons tokens hot-apply */
+  eventEmoji: Partial<Record<string, string>> | (() => Partial<Record<string, string>>);
   getCursor: () => string | undefined;
   setCursor: (key: string) => Promise<void>;
   /** Which events this relay posts (default: all). The cursor advances past filtered events too. */
@@ -67,7 +68,12 @@ export class EventRelay {
       if (this.options.filter?.(event) ?? true) {
         try {
           await this.options.rest.post(Routes.channelMessages(channelId), {
-            body: { content: render(event, this.options.eventEmoji) },
+            body: {
+              content: render(
+                event,
+                typeof this.options.eventEmoji === "function" ? this.options.eventEmoji() : this.options.eventEmoji,
+              ),
+            },
           });
         } catch (error) {
           // Do not advance the cursor past a failed post - retried next tick

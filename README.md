@@ -112,7 +112,7 @@ All environment variables are documented in [docs/ENV_VARS.md](docs/ENV_VARS.md)
 
 ## Discord bot mode
 
-Webhook mode (above) only needs a channel webhook URL. **Bot mode** upgrades the card to a real bot: an online member with a live player-count activity, an optional logs channel streaming every server event, an optional admin channel that restricts and audits moderation, and the slash commands `/status` `/players` (public) and `/kick` `/ban` `/unban` `/restart` (permission-gated). Setting a bot token switches the mode:
+Webhook mode (above) only needs a channel webhook URL. **Bot mode** upgrades the card to a real bot: an online member with a live player-count activity, an optional logs channel streaming every server event, an optional admin channel that restricts and audits moderation, and the slash commands `/status` `/players` (public) and `/kick` `/ban` `/unban` `/restart` `/setup-icons` (permission-gated - `/setup-icons` uploads a shipped icon set as the bot's own emojis, no server emoji slots needed). Setting a bot token switches the mode:
 
 ```shell
 DISCORD_STATUS_ENABLED=true
@@ -130,7 +130,11 @@ In short: create an application in the [Discord Developer Portal](https://discor
 
 ## Custom event icons
 
-The last-events log ships with proper icons out of the box (the `icons/modern-slate` set). To use another set - or your own icons:
+The last-events log ships with proper icons out of the box (the `icons/modern-slate` set).
+
+**Bot mode shortcut:** run `/setup-icons <set>` in Discord - the bot uploads the chosen set as its own application emojis (no server emoji slots used) and the card plus the event channels switch to it at the next update.
+
+To use another set manually - or your own icons (required in webhook mode):
 
 1. Pick a set from [`icons/`](icons/) (31 ready-made sets, 16 PNGs each) - the [side-by-side overview](icons/README.md) shows every set in one place, and each set directory has its own README with larger previews.
 2. **Upload the 16 PNGs** to the Discord server your webhook lives in: Server Settings → Emoji → Upload Emoji.

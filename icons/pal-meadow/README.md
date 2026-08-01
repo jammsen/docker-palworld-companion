@@ -23,6 +23,10 @@ Family: **Palworld** - the ten in-game Pal Sphere tiers (Radar excluded) plus me
 
 ## Using this set
 
+**Bot mode shortcut:** run `/setup-icons pal-meadow` in Discord - the bot uploads this set as its own application emojis (no server emoji slots used) and applies it automatically.
+
+Manual upload (required in webhook mode):
+
 1. Upload the 16 PNGs to your Discord server: **Server Settings -> Emoji -> Upload Emoji**.
 2. Get each token: type the emoji with a leading backslash in any channel (e.g. `\:pal_meadow_join:`) and send - Discord prints the raw token.
 3. Set the matching `DISCORD_STATUS_EMOJI_EVENT_*` variables - see [docs/ENV_VARS.md](../../docs/ENV_VARS.md).

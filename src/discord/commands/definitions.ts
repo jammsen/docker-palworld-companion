@@ -54,4 +54,19 @@ export const COMMAND_DEFINITIONS: RESTPostAPIChatInputApplicationCommandsJSONBod
     dm_permission: false,
     default_member_permissions: MANAGE_GUILD,
   },
+  {
+    name: "setup-icons",
+    description: "Upload a shipped icon set as this bot's emojis and use it for the card and event logs",
+    dm_permission: false,
+    default_member_permissions: MANAGE_GUILD,
+    options: [
+      {
+        type: ApplicationCommandOptionType.String,
+        name: "style",
+        description: "Icon set name (start typing to search, e.g. modern-slate or pal-sphere-ultra)",
+        required: true,
+        autocomplete: true,
+      },
+    ],
+  },
 ];

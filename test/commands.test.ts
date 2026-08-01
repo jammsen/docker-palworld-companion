@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -6,15 +6,42 @@ import { type DiscordBotMode, parseConfig } from "../src/config.js";
 import {
   type CommandDeps,
   EPHEMERAL,
+  handleAutocomplete,
   handleInteraction,
   type InteractionLike,
 } from "../src/discord/commands/handlers.js";
+import type { EmojiRestLike } from "../src/discord/icon-setup.js";
+import { ALL_EVENT_TYPES } from "../src/events.js";
 import { MetricsCollector } from "../src/metrics/collector.js";
 import { PalworldClient } from "../src/palworld/client.js";
 import { StateStore } from "../src/state.js";
 import { HostProcMetricsSource } from "../src/sys/metrics-source.js";
 
 const ADMIN_CHANNEL = "323456789012345678";
+
+async function makeIconsDir(sets: string[]): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "companion-cmd-icons-"));
+  for (const set of sets) {
+    await mkdir(join(dir, set), { recursive: true });
+    for (const event of ALL_EVENT_TYPES) {
+      await writeFile(join(dir, set, `${event}.png`), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    }
+  }
+  return dir;
+}
+
+function makeEmojiRest(): EmojiRestLike {
+  let nextId = 500;
+  return {
+    get: async () => ({ items: [] }),
+    post: async (_route, options) => {
+      const body = options.body as { name: string };
+      return { id: String(nextId++), name: body.name };
+    },
+    patch: async () => undefined,
+    delete: async () => undefined,
+  };
+}
 
 async function makeDeps(overrides: Partial<DiscordBotMode> = {}): Promise<CommandDeps & { palworldCalls: string[] }> {
   const gameRoot = await mkdtemp(join(tmpdir(), "companion-commands-"));
@@ -195,5 +222,79 @@ describe("handleInteraction", () => {
     expect(interaction.replies).toHaveLength(0);
     const edit = interaction.edits[0] as { embeds?: unknown[] };
     expect(edit.embeds?.length).toBeGreaterThan(0);
+  });
+
+  it("/setup-icons uploads the chosen set, saves the tokens and records the actor", async () => {
+    const deps = await makeDeps();
+    const iconsDir = await makeIconsDir(["modern-slate"]);
+    const saved: Array<{ iconSet: string; tokens: Record<string, string> }> = [];
+    const withSetup = {
+      ...deps,
+      iconSetup: {
+        rest: makeEmojiRest(),
+        applicationId: () => "app1",
+        iconsDir,
+        saveTokens: async (iconSet: string, tokens: Record<string, string>) => {
+          saved.push({ iconSet, tokens });
+        },
+      },
+    };
+    const interaction = makeInteraction("setup-icons", {
+      options: { getString: (name) => (name === "style" ? "modern-slate" : null) },
+    });
+    await handleInteraction(withSetup, interaction);
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.iconSet).toBe("modern-slate");
+    expect(saved[0]?.tokens.join).toMatch(/^<:pw_join:\d+>$/);
+    const edit = interaction.edits[0] as { content: string };
+    expect(edit.content).toContain("modern-slate");
+    const snapshot = await deps.collector.collect();
+    const settingsEvent = snapshot.events.find((event) => event.type === "settings");
+    expect(settingsEvent?.newName).toBe("TestAdmin");
+  });
+
+  it("/setup-icons refuses an unknown style and waits for the gateway", async () => {
+    const deps = await makeDeps();
+    const iconsDir = await makeIconsDir(["modern-slate"]);
+    const setup = {
+      rest: makeEmojiRest(),
+      applicationId: () => "app1" as string | undefined,
+      iconsDir,
+      saveTokens: async () => {},
+    };
+    const unknown = makeInteraction("setup-icons", {
+      options: { getString: () => "no-such-set" },
+    });
+    await handleInteraction({ ...deps, iconSetup: setup }, unknown);
+    expect((unknown.replies[0] as { content: string }).content).toContain("Unknown icon set");
+
+    const offline = makeInteraction("setup-icons", {
+      options: { getString: () => "modern-slate" },
+    });
+    await handleInteraction({ ...deps, iconSetup: { ...setup, applicationId: () => undefined } }, offline);
+    expect((offline.replies[0] as { content: string }).content).toContain("not connected");
+  });
+
+  it("setup-icons style autocomplete filters the shipped sets", async () => {
+    const deps = await makeDeps();
+    const iconsDir = await makeIconsDir(["modern-slate", "cool-ember", "pal-sphere-ultra"]);
+    const withSetup = {
+      ...deps,
+      iconSetup: {
+        rest: makeEmojiRest(),
+        applicationId: () => "app1",
+        iconsDir,
+        saveTokens: async () => {},
+      },
+    };
+    const responses: Array<Array<{ name: string; value: string }>> = [];
+    await handleAutocomplete(withSetup, {
+      commandName: "setup-icons",
+      options: { getFocused: () => "sphere" },
+      respond: async (choices) => {
+        responses.push(choices);
+      },
+    });
+    expect(responses[0]).toEqual([{ name: "pal-sphere-ultra", value: "pal-sphere-ultra" }]);
   });
 });

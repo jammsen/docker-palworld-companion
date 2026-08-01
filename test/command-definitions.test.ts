@@ -5,11 +5,11 @@ import { COMMAND_DEFINITIONS } from "../src/discord/commands/definitions.js";
 describe("COMMAND_DEFINITIONS", () => {
   it("gates the moderation commands behind Manage Server and blocks DMs everywhere", () => {
     const byName = new Map(COMMAND_DEFINITIONS.map((command) => [command.name, command]));
-    expect([...byName.keys()].sort()).toEqual(["ban", "kick", "players", "restart", "status", "unban"]);
+    expect([...byName.keys()].sort()).toEqual(["ban", "kick", "players", "restart", "setup-icons", "status", "unban"]);
     for (const command of COMMAND_DEFINITIONS) {
       expect(command.dm_permission).toBe(false);
     }
-    for (const name of ["kick", "ban", "unban", "restart"]) {
+    for (const name of ["kick", "ban", "unban", "restart", "setup-icons"]) {
       expect(byName.get(name)?.default_member_permissions).toBe(PermissionFlagsBits.ManageGuild.toString());
     }
     for (const name of ["status", "players"]) {
@@ -27,5 +27,13 @@ describe("COMMAND_DEFINITIONS", () => {
       ]);
     }
     expect((byName.get("unban")?.options ?? []).map((option) => option.name)).toEqual(["user_id"]);
+  });
+
+  it("setup-icons takes a required autocompleted style", () => {
+    const command = COMMAND_DEFINITIONS.find((candidate) => candidate.name === "setup-icons");
+    const style = command?.options?.[0];
+    expect(style?.name).toBe("style");
+    expect(style?.required).toBe(true);
+    expect(style && "autocomplete" in style && style.autocomplete).toBe(true);
   });
 });

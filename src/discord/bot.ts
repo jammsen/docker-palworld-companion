@@ -7,8 +7,8 @@ import {
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from "discord.js";
 import { log } from "../logger.js";
-import type { RestLike } from "./bot-transport.js";
-import type { InteractionLike } from "./commands/handlers.js";
+import type { AutocompleteLike, InteractionLike } from "./commands/handlers.js";
+import type { EmojiRestLike } from "./icon-setup.js";
 import type { Activity, PresenceTarget } from "./presence.js";
 
 export interface DiscordBotOptions {
@@ -17,6 +17,7 @@ export interface DiscordBotOptions {
   commands?: RESTPostAPIChatInputApplicationCommandsJSONBody[];
   guildId?: string;
   onInteraction?: (interaction: InteractionLike) => Promise<void>;
+  onAutocomplete?: (interaction: AutocompleteLike) => Promise<void>;
 }
 
 // Owns the two Discord connections of bot mode:
@@ -24,7 +25,8 @@ export interface DiscordBotOptions {
 //   queue through one rate limiter) - works without any gateway connection
 // - the gateway Client (websocket): presence and slash-command interactions
 export class DiscordBot implements PresenceTarget {
-  readonly rest: RestLike;
+  /** Superset of RestLike: get/delete are needed by /setup-icons' app-emoji routes */
+  readonly rest: EmojiRestLike;
   private client: Client | null = null;
 
   constructor(private readonly options: DiscordBotOptions) {
@@ -49,11 +51,11 @@ export class DiscordBot implements PresenceTarget {
           .catch((error) => log.warn(`>>> Slash-command registration failed: ${String(error)}`));
       }
     });
-    if (this.options.onInteraction) {
-      const handle = this.options.onInteraction;
+    const { onInteraction, onAutocomplete } = this.options;
+    if (onInteraction || onAutocomplete) {
       client.on(Events.InteractionCreate, (interaction) => {
-        if (!interaction.isChatInputCommand()) return;
-        void handle(interaction);
+        if (interaction.isChatInputCommand() && onInteraction) void onInteraction(interaction);
+        else if (interaction.isAutocomplete() && onAutocomplete) void onAutocomplete(interaction);
       });
     }
     try {
@@ -65,6 +67,11 @@ export class DiscordBot implements PresenceTarget {
       );
       await client.destroy().catch(() => undefined);
     }
+  }
+
+  /** Available once the gateway is connected - /setup-icons needs it for the app-emoji routes */
+  applicationId(): string | undefined {
+    return this.client?.application?.id ?? undefined;
   }
 
   setActivity(activity: Activity): void {

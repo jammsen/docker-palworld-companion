@@ -19,6 +19,14 @@ export interface CommandDeps {
   fallbackServerName: string;
   /** Effective admin channel (panel runtime override wins over env) - falls back to discord.adminChannelId when absent */
   adminChannelId?: () => string | undefined;
+  /** /setup-icons wiring - absent when the icon dir is not available */
+  iconSetup?: {
+    rest: import("../icon-setup.js").EmojiRestLike;
+    /** Available once the gateway is connected */
+    applicationId: () => string | undefined;
+    iconsDir: string;
+    saveTokens: (iconSet: string, tokens: Record<string, string>) => Promise<void>;
+  };
 }
 
 // Narrow structural view of ChatInputCommandInteraction - handlers never touch
@@ -60,7 +68,7 @@ function moderationRefusal(deps: CommandDeps, interaction: InteractionLike): str
 
 async function recordAdminEvent(
   deps: CommandDeps,
-  type: "kick" | "ban" | "unban" | "restart",
+  type: "kick" | "ban" | "unban" | "restart" | "settings",
   target: string | undefined,
   actor: string,
 ): Promise<void> {
@@ -154,6 +162,44 @@ export async function handleInteraction(deps: CommandDeps, interaction: Interact
         await interaction.reply({ content: `\`${sanitizeName(userId)}\` unbanned.`, flags: EPHEMERAL });
         return;
       }
+      case "setup-icons": {
+        const refusal = moderationRefusal(deps, interaction);
+        if (refusal) {
+          await interaction.reply({ content: refusal, flags: EPHEMERAL });
+          return;
+        }
+        const setup = deps.iconSetup;
+        if (!setup) {
+          await interaction.reply({ content: "Icon setup is not available on this deployment.", flags: EPHEMERAL });
+          return;
+        }
+        const applicationId = setup.applicationId();
+        if (applicationId === undefined) {
+          await interaction.reply({
+            content: "The bot gateway is not connected yet - try again shortly.",
+            flags: EPHEMERAL,
+          });
+          return;
+        }
+        const style = interaction.options.getString("style") ?? "";
+        const { listIconSets, uploadIconSet } = await import("../icon-setup.js");
+        const sets = await listIconSets(setup.iconsDir);
+        if (!sets.includes(style)) {
+          await interaction.reply({
+            content: `Unknown icon set \`${sanitizeName(style)}\` - pick one from the autocomplete list.`,
+            flags: EPHEMERAL,
+          });
+          return;
+        }
+        await interaction.deferReply({ flags: EPHEMERAL });
+        const tokens = await uploadIconSet({ rest: setup.rest, applicationId, iconsDir: setup.iconsDir, style });
+        await setup.saveTokens(style, tokens);
+        await recordAdminEvent(deps, "settings", style, interaction.user.username);
+        await interaction.editReply({
+          content: `Icon set **${style}** uploaded as ${Object.keys(tokens).length} bot emojis - the status card and event logs use it from the next update.`,
+        });
+        return;
+      }
       case "restart": {
         const refusal = moderationRefusal(deps, interaction);
         if (refusal) {
@@ -176,9 +222,35 @@ export async function handleInteraction(deps: CommandDeps, interaction: Interact
     // An interaction failure must never kill the companion; the log carries
     // the actionable hint, the user reply stays friendly
     log.warn(`>>> Discord command /${interaction.commandName} failed: ${describeDiscordError(error)}`);
-    const message = "The game server REST API is unreachable - try again when the server is up.";
+    const message =
+      interaction.commandName === "setup-icons"
+        ? "Icon upload failed - the companion log has the details."
+        : "The game server REST API is unreachable - try again when the server is up.";
     await interaction
       .reply({ content: message, flags: EPHEMERAL })
       .catch(() => interaction.editReply({ content: message }).catch(() => undefined));
+  }
+}
+
+// Narrow structural view of AutocompleteInteraction - same testing rationale
+// as InteractionLike
+export interface AutocompleteLike {
+  commandName: string;
+  options: { getFocused(): string };
+  respond(choices: Array<{ name: string; value: string }>): Promise<unknown>;
+}
+
+/** /setup-icons style autocomplete: filter the shipped sets by the typed text */
+export async function handleAutocomplete(deps: CommandDeps, interaction: AutocompleteLike): Promise<void> {
+  if (interaction.commandName !== "setup-icons" || !deps.iconSetup) return;
+  try {
+    const { listIconSets } = await import("../icon-setup.js");
+    const sets = await listIconSets(deps.iconSetup.iconsDir);
+    const typed = interaction.options.getFocused().toLowerCase();
+    const matches = sets.filter((name) => name.includes(typed)).slice(0, 25);
+    await interaction.respond(matches.map((name) => ({ name, value: name })));
+  } catch (error) {
+    // Autocomplete responses expire after 3 seconds - a miss is cosmetic
+    log.debug(`setup-icons autocomplete failed: ${String(error)}`);
   }
 }
