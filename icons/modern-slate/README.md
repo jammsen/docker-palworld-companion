@@ -1,6 +1,6 @@
 # Icon set: `modern-slate`
 
-Family: **Modern** - flat squircles with muted, considered grounds. 16 icons, 128x128 PNG, drawn for readability at Discord's 22px inline size.
+Family: **Modern** - flat squircles with muted, considered backgrounds. 16 icons, 128x128 PNG, drawn for readability at Discord's 22px inline size.
 
 | Preview | Event | File |
 | --- | --- | --- |

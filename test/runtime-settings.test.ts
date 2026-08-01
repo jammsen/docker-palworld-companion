@@ -102,6 +102,22 @@ describe("setEventEmojiTokens", () => {
   });
 });
 
+describe("setEmojiOverrides", () => {
+  it("persists panel emoji overrides alongside the other groups", async () => {
+    const { dir } = await makeBase();
+    const store = new RuntimeSettingsStore(dir);
+    await store.load();
+    await store.setEventEmojiTokens("modern-slate", { join: "<:pw_join:1>" });
+    await store.setEmojiOverrides({ platform: { steam: "<:funny:9>" }, event: { ban: "<:insane:8>" } });
+    const reloaded = new RuntimeSettingsStore(dir);
+    await reloaded.load();
+    expect(reloaded.get().emojiOverrides).toEqual({ platform: { steam: "<:funny:9>" }, event: { ban: "<:insane:8>" } });
+    expect(reloaded.get().eventEmojiTokens).toEqual({ join: "<:pw_join:1>" }); // untouched
+    await reloaded.setEmojiOverrides({});
+    expect(reloaded.get().emojiOverrides).toEqual({});
+  });
+});
+
 describe("createWebhookRuntime", () => {
   it("overrides URL and interval, empty/absent falls back to env", async () => {
     const { dir, base } = await makeWebhookBase();

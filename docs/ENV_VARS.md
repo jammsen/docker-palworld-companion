@@ -106,7 +106,7 @@ What you need before starting: a Discord account that has the **Manage Server** 
 **Step 6 - Enable and restart**
 
 20. In your `default.env` set `DISCORD_STATUS_ENABLED=true` plus the values collected above, then run `docker compose up -d`.
-21. Watch the companion with `docker compose logs companion -f`: it reports `discord status enabled (bot mode)`, `Discord bot gateway connected as <name>` and (with commands enabled) `Registered 6 slash commands`. The card appears in the status channel within one update interval.
+21. Watch the companion with `docker compose logs companion -f`: it reports `discord status enabled (bot mode)`, `Discord bot gateway connected as <name>` and (with commands enabled) `Registered 7 slash commands`. The card appears in the status channel within one update interval.
 22. Troubleshooting: `Missing Access (50001)` → the bot cannot see that channel, go back to step 5 (including the category trap). `Missing Permissions (50013)` → it sees the channel but may not write/embed there, also step 5. `Unknown Channel (10003)` → the channel id is wrong, re-copy it. A `401` → the token is wrong, reset it on the Bot page. The companion's log appends these hints automatically.
 
 **Step 7 - Give permissions to bot commands (optional)**
@@ -122,11 +122,11 @@ Out of the box, `/status` and `/players` are usable by everyone, while the moder
 **Step 8 - Custom event icons without manual uploading (optional)**
 
 28. With commands enabled, run **`/setup-icons`** and pick a style from the autocomplete (all shipped sets: [icons/README.md](../icons/README.md)). The bot uploads the set's 16 event icons as its own **application emojis** - they use the app's 2000 emoji slots, consume **no server emoji slots**, need no extra permission, and the status card plus the logs/audit channels switch to them at the next update. Re-running with another style replaces them.
-29. The manual path (Server Settings → Emoji → Upload + `DISCORD_STATUS_EMOJI_EVENT_*` tokens) still exists and is the only way in **webhook mode**. Precedence in bot mode: `/setup-icons` tokens > env tokens > built-in defaults - re-run `/setup-icons` with another style to switch, or delete `companion-settings.json` on the companion volume to fall back to the env/default tokens.
+29. The manual path (Server Settings → Emoji → Upload + `DISCORD_STATUS_EMOJI_EVENT_*` tokens) still exists and is the only way in **webhook mode**. Precedence: panel "Emoji overrides" > `/setup-icons` tokens (bot mode only) > env tokens > built-in defaults - re-run `/setup-icons` with another style to switch, use the panel section for single-emoji tweaks, or reset both in the panel / delete `companion-settings.json` to fall back.
 
 Notes:
 
-- **Runtime overrides in the web panel:** the panel has its own **Discord** page (menu entry next to Settings). In bot mode it overrides the channel ids, presence, update interval and the commands toggle; in webhook mode the webhook URL and the update interval (stored in `companion-settings.json` on the companion volume; panel override wins over env, empty field = env value). The bot token is deliberately **not** editable in the panel - it stays environment-only.
+- **Runtime overrides in the web panel:** the panel has its own **Discord** page (menu entry next to Settings). In bot mode it overrides the channel ids, presence, update interval and the commands toggle; in webhook mode the webhook URL and the update interval; in both modes every platform and event emoji can be overridden selectively in the "Emoji overrides" section (stored in `companion-settings.json` on the companion volume; panel override wins over env, empty field = env value). The bot token is deliberately **not** editable in the panel - it stays environment-only.
 - Channel ids may overlap in any combination - pointing the logs (or later admin) channel at the card channel works, but the card message will get buried under the message stream (it still updates in place); the companion logs a hint at startup.
 - **Switching between webhook and bot mode** leaves the other mode's card message orphaned (a bot cannot edit a webhook's message and vice versa) - delete the old message manually. Both message ids stay stored, so switching back resumes the previous card.
 - The gateway connection (presence) needs outbound `wss://gateway.discord.gg`. On restricted networks the card and logs channel keep working over plain HTTPS - only the presence is unavailable.

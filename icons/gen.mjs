@@ -150,7 +150,7 @@ const shine = `<rect x="6" y="6" width="116" height="34" rx="30" fill="#ffffff" 
 
 // ---------- sets ----------
 const SETS = [
-  // MODERN - flat squircles, muted considered grounds
+  // MODERN - flat squircles, muted considered backgrounds
   {
     id: "modern-slate",
     family: "Modern",

@@ -27,6 +27,15 @@ export interface WebhookGroupValues {
   envUpdateIntervalSeconds: string;
 }
 
+export interface EmojiRowView {
+  kind: "platform" | "event";
+  key: string;
+  /** Current panel override ("" = none) */
+  override: string;
+  /** What applies without an override: /setup-icons token, env token or shipped default */
+  placeholder: string;
+}
+
 export interface DiscordPageProps {
   t: (key: string) => string;
   language: string;
@@ -36,7 +45,10 @@ export interface DiscordPageProps {
   webhook: WebhookGroupValues;
   /** The gameserver's own WEBHOOK_ENABLED - info only, not controllable here */
   gameserverWebhookEnabled: boolean;
+  /** Present when Discord is enabled (either mode) */
+  emojis?: EmojiRowView[];
   saved: boolean;
+  esaved: boolean;
   errors?: string[];
 }
 
@@ -290,6 +302,71 @@ function WebhookGroup({
   );
 }
 
+function EmojisGroup({
+  t,
+  csrf,
+  rows,
+  saved,
+}: {
+  t: (key: string) => string;
+  csrf: string;
+  rows: EmojiRowView[];
+  saved: boolean;
+}) {
+  const section = (kind: "platform" | "event", headingKey: string) => (
+    <>
+      <tr>
+        <td colspan={2}>
+          <strong>{t(headingKey)}</strong>
+        </td>
+      </tr>
+      {rows
+        .filter((row) => row.kind === kind)
+        .map((row) => (
+          <tr>
+            <td>
+              <label for={`emoji-${row.kind}-${row.key}`}>
+                <code>{row.key}</code>
+              </label>
+            </td>
+            <td>
+              <input
+                id={`emoji-${row.kind}-${row.key}`}
+                type="text"
+                name={`${row.kind}_${row.key}`}
+                value={row.override}
+                placeholder={row.placeholder || t("settings.discord.envHint")}
+              />
+            </td>
+          </tr>
+        ))}
+    </>
+  );
+  return (
+    <section>
+      <h2>😃 {t("settings.discord.emojiTitle")}</h2>
+      {saved ? <p class="status-banner online">✅ {t("settings.discord.saved")}</p> : null}
+      <p class="hint">{t("settings.discord.emojiNote")}</p>
+      <form method="post" action="/discord/emojis">
+        <input type="hidden" name="_csrf" value={csrf} />
+        <table class="settings-table">
+          <tbody>
+            {section("platform", "settings.discord.emojiPlatforms")}
+            {section("event", "settings.discord.emojiEvents")}
+          </tbody>
+        </table>
+        <button type="submit">{t("settings.discord.emojiSave")}</button>
+      </form>
+      <form method="post" action="/discord/emojis/reset" class="inline">
+        <input type="hidden" name="_csrf" value={csrf} />
+        <button type="submit" class="secondary">
+          {t("settings.discord.emojiReset")}
+        </button>
+      </form>
+    </section>
+  );
+}
+
 export function DiscordPage({
   t,
   language,
@@ -298,7 +375,9 @@ export function DiscordPage({
   bot,
   webhook,
   gameserverWebhookEnabled,
+  emojis,
   saved,
+  esaved,
   errors,
 }: DiscordPageProps) {
   return (
@@ -317,6 +396,7 @@ export function DiscordPage({
       ) : null}
       <BotGroup t={t} csrf={csrf} values={bot} active={activeMode === "bot"} saved={saved} />
       <WebhookGroup t={t} csrf={csrf} values={webhook} active={activeMode === "webhook"} saved={saved} />
+      {emojis ? <EmojisGroup t={t} csrf={csrf} rows={emojis} saved={esaved} /> : null}
       <p class="hint">
         {gameserverWebhookEnabled
           ? t("settings.discord.gameserverWebhookOn")

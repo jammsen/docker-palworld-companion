@@ -4,6 +4,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { CompanionConfig } from "../config.js";
+import { ALL_EVENT_TYPES } from "../events.js";
 import { log } from "../logger.js";
 import type { MetricsCollector } from "../metrics/collector.js";
 import { type BanlistEntry, parseBanlist } from "../palworld/banlist.js";
@@ -14,7 +15,7 @@ import { type AuthService, SESSION_COOKIE } from "./auth.js";
 import { enhanceJs } from "./enhance.js";
 import { availableLanguages, resolveLanguage, translator } from "./i18n.js";
 import { DashboardPage } from "./views/dashboard.js";
-import { type BotGroupValues, DiscordPage, type WebhookGroupValues } from "./views/discord.js";
+import { type BotGroupValues, DiscordPage, type EmojiRowView, type WebhookGroupValues } from "./views/discord.js";
 import { LoginPage } from "./views/login.js";
 import { PlayersPage } from "./views/players.js";
 import { SettingsPage } from "./views/settings.js";
@@ -367,7 +368,34 @@ export function createApp(config: CompanionConfig, version: string, deps: AppDep
     return renderSettings(c, saved ? { saved: Number.parseInt(saved, 10) } : {});
   });
 
-  const renderDiscord = (c: Context<AppEnv>, extra: { saved?: boolean; errors?: string[] } = {}) => {
+  const EMOJI_PLATFORMS = ["steam", "xbox", "ps5", "mac"] as const;
+
+  const emojiRows = (): EmojiRowView[] | undefined => {
+    if (!discordSettings) return undefined;
+    const { base, store } = discordSettings;
+    const overrides = store.get().emojiOverrides ?? {};
+    const setupTokens = discordSettings.mode === "bot" ? (store.get().eventEmojiTokens ?? {}) : {};
+    const rows: EmojiRowView[] = [];
+    for (const key of EMOJI_PLATFORMS) {
+      rows.push({
+        kind: "platform",
+        key,
+        override: overrides.platform?.[key] ?? "",
+        placeholder: base.platformEmoji[key] ?? "",
+      });
+    }
+    for (const key of ALL_EVENT_TYPES) {
+      rows.push({
+        kind: "event",
+        key,
+        override: overrides.event?.[key] ?? "",
+        placeholder: setupTokens[key] ?? base.eventEmoji[key] ?? "",
+      });
+    }
+    return rows;
+  };
+
+  const renderDiscord = (c: Context<AppEnv>, extra: { saved?: boolean; esaved?: boolean; errors?: string[] } = {}) => {
     const csrf = auth.csrfToken(getCookie(c, SESSION_COOKIE) ?? "");
     return c.html(
       DiscordPage({
@@ -378,13 +406,52 @@ export function createApp(config: CompanionConfig, version: string, deps: AppDep
         bot: botGroupValues(),
         webhook: webhookGroupValues(),
         gameserverWebhookEnabled: envView.gameserverWebhookEnabled,
+        emojis: emojiRows(),
         saved: extra.saved === true,
+        esaved: extra.esaved === true,
         errors: extra.errors,
       }),
     );
   };
 
-  app.get("/discord", (c) => renderDiscord(c, { saved: c.req.query("saved") === "1" }));
+  app.get("/discord", (c) =>
+    renderDiscord(c, { saved: c.req.query("saved") === "1", esaved: c.req.query("esaved") === "1" }),
+  );
+
+  const EMOJI_TOKEN = /^<a?:\w+:\d+>$/;
+
+  app.post("/discord/emojis", async (c) => {
+    if (!discordSettings) return c.redirect("/discord");
+    const form = await c.req.parseBody();
+    const errors: string[] = [];
+    const platform: Record<string, string> = {};
+    const event: Record<string, string> = {};
+    const collect = (kind: "platform" | "event", key: string, target: Record<string, string>) => {
+      const value = form[`${kind}_${key}`];
+      const trimmed = typeof value === "string" ? value.trim() : "";
+      if (trimmed.length === 0) return; // empty = no override, the lower layers apply
+      if (!EMOJI_TOKEN.test(trimmed)) {
+        errors.push(`${key}: not a Discord emoji token (expected <:name:id>)`);
+        return;
+      }
+      target[key] = trimmed;
+    };
+    for (const key of EMOJI_PLATFORMS) collect("platform", key, platform);
+    for (const key of ALL_EVENT_TYPES) collect("event", key, event);
+    if (errors.length > 0) return renderDiscord(c, { errors });
+    await discordSettings.store.setEmojiOverrides({ platform, event });
+    await collector.recordEvent({ at: Date.now(), type: "settings", newName: "web panel" });
+    log.info(">>> Panel saved Discord emoji overrides");
+    return c.redirect("/discord?esaved=1");
+  });
+
+  app.post("/discord/emojis/reset", async (c) => {
+    if (!discordSettings) return c.redirect("/discord");
+    await discordSettings.store.setEmojiOverrides({});
+    await collector.recordEvent({ at: Date.now(), type: "settings", newName: "web panel" });
+    log.info(">>> Panel reset all Discord emoji overrides");
+    return c.redirect("/discord?esaved=1");
+  });
 
   const SNOWFLAKE = /^\d{17,20}$/;
 

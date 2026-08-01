@@ -15,7 +15,7 @@ Regenerate or add sets with [`gen.mjs`](./gen.mjs) (instructions in its header).
 
 ## Modern (6 sets)
 
-Flat squircles with muted, considered grounds.
+Flat squircles with muted, considered backgrounds.
 
 | Set | Icons |
 | --- | --- |

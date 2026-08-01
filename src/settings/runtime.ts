@@ -30,6 +30,13 @@ export interface CompanionRuntimeSettings {
   eventEmojiTokens?: Record<string, string>;
   /** The icon set the tokens came from - informational */
   iconSet?: string;
+  /** Panel-set per-emoji overrides - the highest-precedence emoji layer */
+  emojiOverrides?: EmojiOverrides;
+}
+
+export interface EmojiOverrides {
+  platform?: Record<string, string>;
+  event?: Record<string, string>;
 }
 
 // companion-settings.json on the companion data volume - atomic writes like
@@ -68,6 +75,12 @@ export class RuntimeSettingsStore {
   /** Replace the discord override group as a whole (the panel form posts all fields) */
   async setDiscord(overrides: DiscordRuntimeOverrides): Promise<void> {
     this.settings = { ...this.settings, discord: overrides };
+    await this.persist();
+  }
+
+  /** Replace the panel's per-emoji overrides as a whole (the form posts all fields) */
+  async setEmojiOverrides(overrides: EmojiOverrides): Promise<void> {
+    this.settings = { ...this.settings, emojiOverrides: overrides };
     await this.persist();
   }
 

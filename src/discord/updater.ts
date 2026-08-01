@@ -22,8 +22,10 @@ export interface DiscordStatusDeps {
   auditRelay?: EventRelay;
   /** Bot mode: effective interval getter - the panel can hot-change it; the timer re-arms after the next tick */
   runtimeInterval?: () => number;
-  /** Bot mode: effective event emojis (/setup-icons tokens merged over env) - hot-applied per tick */
+  /** Effective event emojis (panel overrides > /setup-icons tokens > env) - hot-applied per tick */
   eventEmoji?: () => Partial<Record<string, string>>;
+  /** Effective platform emojis (panel overrides > env) - hot-applied per tick */
+  platformEmoji?: () => Partial<Record<string, string>>;
 }
 
 // Interval loop: collect a snapshot, render the card, publish (create-or-edit),
@@ -66,7 +68,7 @@ export async function startDiscordStatus(
       try {
         await transport.publish(
           buildStatusCard(snapshot, cardState, serverName, {
-            platformEmoji: discord.platformEmoji,
+            platformEmoji: deps.platformEmoji?.() ?? discord.platformEmoji,
             eventEmoji: deps.eventEmoji?.() ?? discord.eventEmoji,
             eventAmount: discord.eventAmount,
           }),
@@ -124,7 +126,7 @@ export async function startDiscordStatus(
       const snapshot = await collector.refreshEventsOnly();
       await transport.publish(
         buildStatusCard(snapshot, "offline", snapshot?.serverName ?? config.serverName, {
-          platformEmoji: discord.platformEmoji,
+          platformEmoji: deps.platformEmoji?.() ?? discord.platformEmoji,
           eventEmoji: deps.eventEmoji?.() ?? discord.eventEmoji,
           eventAmount: discord.eventAmount,
         }),

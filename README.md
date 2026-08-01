@@ -16,7 +16,7 @@ Companion **sidecar container** for [jammsen/docker-palworld-dedicated-server](h
 - **Players** - online players with level/ping/buildings, kick/ban/unban and the ban list
 - **Settings editor** - every `PalWorldSettings.ini` value with validation, grouped and translated (English + 中文); saved changes are stored as overrides on the companion volume and applied by the gameserver at its next restart
 - **One-click restart** with in-game announce and world save
-- **Discord page** - own menu entry: in bot mode the channels, presence, update interval and command toggle are editable at runtime, in webhook mode the webhook URL and interval (the bot token stays env-only)
+- **Discord page** - own menu entry: in bot mode the channels, presence, update interval and command toggle are editable at runtime, in webhook mode the webhook URL and interval; every platform/event emoji can be overridden selectively in both modes (the bot token stays env-only)
 - Login-protected; sessions survive restarts
 
 ![Web panel dashboard showing server status, stat tiles, the last-events log, RAM usage and per-core CPU bars](docs/assets/webpanel-dashboard.png)

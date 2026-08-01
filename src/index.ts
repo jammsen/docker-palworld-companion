@@ -172,10 +172,16 @@ if (!config.panel && !config.discord) {
         throw new Error("bot mode wiring requires the runtime settings created above");
       const runtime = discordSettings.runtime;
       const runtimeStore = discordSettings.store;
-      // /setup-icons tokens win over env tokens, which win over code defaults
+      // Panel per-emoji overrides win over /setup-icons tokens, which win
+      // over env tokens, which win over code defaults
       const effectiveEventEmoji = () => ({
         ...discord.eventEmoji,
         ...(runtimeStore.get().eventEmojiTokens ?? {}),
+        ...(runtimeStore.get().emojiOverrides?.event ?? {}),
+      });
+      const effectivePlatformEmoji = () => ({
+        ...discord.platformEmoji,
+        ...(runtimeStore.get().emojiOverrides?.platform ?? {}),
       });
 
       let commands: typeof import("./discord/commands/definitions.js").COMMAND_DEFINITIONS | undefined;
@@ -274,6 +280,7 @@ if (!config.panel && !config.discord) {
         auditRelay,
         runtimeInterval: () => runtime.updateIntervalSeconds(),
         eventEmoji: effectiveEventEmoji,
+        platformEmoji: effectivePlatformEmoji,
       });
       // ONE composite hook: hooks run concurrently, so only composition
       // guarantees the final offline edit happens before the gateway dies
@@ -293,11 +300,23 @@ if (!config.panel && !config.discord) {
         getMessageId: () => state.get().discordMessageId,
         setMessageId: (id) => state.update({ discordMessageId: id }),
       });
+      const webhookDiscord = config.discord;
+      const webhookStore = discordSettings.store;
       const stop = await startDiscordStatus(config, {
         collector,
         state,
         transport,
         runtimeInterval: () => webhookRuntime.updateIntervalSeconds(),
+        // Panel overrides only: /setup-icons app emojis render exclusively in
+        // messages the bot app itself sends, never through a webhook
+        eventEmoji: () => ({
+          ...webhookDiscord.eventEmoji,
+          ...(webhookStore.get().emojiOverrides?.event ?? {}),
+        }),
+        platformEmoji: () => ({
+          ...webhookDiscord.platformEmoji,
+          ...(webhookStore.get().emojiOverrides?.platform ?? {}),
+        }),
       });
       shutdownHooks.push(stop);
     }
