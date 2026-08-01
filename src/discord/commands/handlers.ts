@@ -4,6 +4,7 @@ import { log } from "../../logger.js";
 import type { MetricsCollector } from "../../metrics/collector.js";
 import type { PalworldClient } from "../../palworld/client.js";
 import { buildStatusCard, sanitizeName } from "../card.js";
+import { describeDiscordError } from "../errors.js";
 import type { EmbedPayload } from "../transport.js";
 
 /** Discord's ephemeral message flag (MessageFlags.Ephemeral) */
@@ -30,7 +31,7 @@ export interface InteractionLike {
   options: { getString(name: string): string | null };
   reply(payload: { content?: string; embeds?: EmbedPayload["embeds"]; flags?: number }): Promise<unknown>;
   deferReply(payload?: { flags?: number }): Promise<unknown>;
-  editReply(payload: { content: string }): Promise<unknown>;
+  editReply(payload: { content?: string; embeds?: EmbedPayload["embeds"] }): Promise<unknown>;
 }
 
 // Returns a refusal message, or null when the action may proceed.
@@ -76,6 +77,9 @@ export async function handleInteraction(deps: CommandDeps, interaction: Interact
   try {
     switch (interaction.commandName) {
       case "status": {
+        // Defer first: getFresh may wait on the game REST API (up to its
+        // timeout), longer than Discord's 3-second interaction window
+        await interaction.deferReply();
         const snapshot = await deps.collector.getFresh(SNAPSHOT_MAX_AGE_MS);
         const card = buildStatusCard(
           snapshot,
@@ -87,20 +91,31 @@ export async function handleInteraction(deps: CommandDeps, interaction: Interact
             eventAmount: deps.discord.eventAmount,
           },
         );
-        await interaction.reply({ embeds: card.embeds });
+        await interaction.editReply({ embeds: card.embeds });
         return;
       }
       case "players": {
+        await interaction.deferReply();
         const snapshot = await deps.collector.getFresh(SNAPSHOT_MAX_AGE_MS);
         if (snapshot.players.length === 0) {
-          await interaction.reply({ content: "No players online." });
+          await interaction.editReply({ content: "No players online." });
           return;
         }
         const lines = snapshot.players.map(
           (player) =>
             `**${sanitizeName(player.name)}** · Lv ${player.level} · ${player.ping.toFixed(0)} ms · \`${player.userId}\``,
         );
-        await interaction.reply({ content: `**Players online (${snapshot.players.length}):**\n${lines.join("\n")}` });
+        // Stay under Discord's 2000-character message limit: keep whole lines
+        // while they fit and state how many players were cut off
+        let content = `**Players online (${snapshot.players.length}):**`;
+        let shown = 0;
+        for (const line of lines) {
+          if (`${content}\n${line}`.length > 1960) break;
+          content = `${content}\n${line}`;
+          shown++;
+        }
+        if (shown < lines.length) content = `${content}\n…and ${lines.length - shown} more`;
+        await interaction.editReply({ content });
         return;
       }
       case "kick":
@@ -158,8 +173,9 @@ export async function handleInteraction(deps: CommandDeps, interaction: Interact
         await interaction.reply({ content: "Unknown command.", flags: EPHEMERAL });
     }
   } catch (error) {
-    // An interaction failure must never kill the companion
-    log.warn(`>>> Discord command /${interaction.commandName} failed: ${String(error)}`);
+    // An interaction failure must never kill the companion; the log carries
+    // the actionable hint, the user reply stays friendly
+    log.warn(`>>> Discord command /${interaction.commandName} failed: ${describeDiscordError(error)}`);
     const message = "The game server REST API is unreachable - try again when the server is up.";
     await interaction
       .reply({ content: message, flags: EPHEMERAL })

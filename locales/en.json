@@ -86,7 +86,7 @@
   "settings.discord.statusChannel": "Live-card channel id",
   "settings.discord.logsChannel": "Logs channel id",
   "settings.discord.adminChannel": "Admin channel id",
-  "settings.discord.interval": "Update interval (seconds, min 10)",
+  "settings.discord.interval": "Update interval (seconds)",
   "settings.discord.presence": "Show bot presence (online member with player count)",
   "settings.discord.commands": "Enable slash commands (restart required)",
   "settings.discord.save": "Save Discord settings",

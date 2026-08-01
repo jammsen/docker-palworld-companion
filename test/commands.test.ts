@@ -177,21 +177,23 @@ describe("handleInteraction", () => {
     expect(reply.flags).toBe(EPHEMERAL);
   });
 
-  it("/players lists names with ids publicly and has an empty-state", async () => {
+  it("/players defers, lists names with ids publicly and has an empty-state", async () => {
     const deps = await makeDeps();
     const interaction = makeInteraction("players");
     await handleInteraction(deps, interaction);
-    const reply = interaction.replies[0] as { content: string; flags?: number };
-    expect(reply.content).toBe("No players online.");
-    expect(reply.flags).toBeUndefined();
+    // Deferred first (snapshot refresh can exceed Discord's 3s window), so
+    // the answer arrives as an edit of the deferred reply
+    expect(interaction.replies).toHaveLength(0);
+    const edit = interaction.edits[0] as { content: string };
+    expect(edit.content).toBe("No players online.");
   });
 
-  it("/status replies with the status-card embeds publicly", async () => {
+  it("/status defers and edits in the status-card embeds publicly", async () => {
     const deps = await makeDeps();
     const interaction = makeInteraction("status");
     await handleInteraction(deps, interaction);
-    const reply = interaction.replies[0] as { embeds?: unknown[]; flags?: number };
-    expect(reply.embeds?.length).toBeGreaterThan(0);
-    expect(reply.flags).toBeUndefined();
+    expect(interaction.replies).toHaveLength(0);
+    const edit = interaction.edits[0] as { embeds?: unknown[] };
+    expect(edit.embeds?.length).toBeGreaterThan(0);
   });
 });

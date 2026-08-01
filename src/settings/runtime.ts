@@ -62,9 +62,10 @@ export class RuntimeSettingsStore {
     this.writeQueue = this.writeQueue
       .catch(() => undefined)
       .then(async () => {
-        await mkdir(this.dataDir, { recursive: true });
+        await mkdir(this.dataDir, { recursive: true, mode: 0o700 });
         const tmpPath = `${this.filePath}.tmp`;
-        await writeFile(tmpPath, snapshot, "utf8");
+        // 0600 like state.json: a persisted webhookUrl override is a credential
+        await writeFile(tmpPath, snapshot, { encoding: "utf8", mode: 0o600 });
         await rename(tmpPath, this.filePath);
       });
     await this.writeQueue;

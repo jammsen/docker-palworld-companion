@@ -184,6 +184,14 @@ if (!config.panel && !config.discord) {
         commands = COMMAND_DEFINITIONS;
         onInteraction = (interaction: import("./discord/commands/handlers.js").InteractionLike) =>
           handleInteraction(deps, interaction);
+      } else if (runtime.commandsEnabled()) {
+        log.warn(
+          ">>> Slash commands are enabled but DISCORD_GUILD_ID is missing - commands stay off (set your server id and restart the companion)",
+        );
+      } else {
+        log.info(
+          ">>> Slash commands are disabled (DISCORD_COMMANDS_ENABLED / panel toggle) - enabling them requires a companion restart",
+        );
       }
       const bot = new DiscordBot({ botToken: discord.botToken, commands, guildId: discord.guildId, onInteraction });
       await bot.start(); // best-effort gateway; REST features work regardless

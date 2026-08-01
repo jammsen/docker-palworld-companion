@@ -59,20 +59,32 @@ export async function startDiscordStatus(
       const snapshot = await collector.collect();
       const cardState: CardState = snapshot.serverUp ? "online" : "starting";
       const serverName = snapshot.serverName;
-      await transport.publish(
-        buildStatusCard(snapshot, cardState, serverName, {
-          platformEmoji: discord.platformEmoji,
-          eventEmoji: discord.eventEmoji,
-          eventAmount: discord.eventAmount,
-        }),
-      );
-      await deps.eventRelay?.publish(snapshot.events);
-      await deps.auditRelay?.publish(snapshot.events);
+      // Independent streams: a failing card channel must not silence the
+      // relays (different channels) or the presence, and vice versa
+      try {
+        await transport.publish(
+          buildStatusCard(snapshot, cardState, serverName, {
+            platformEmoji: discord.platformEmoji,
+            eventEmoji: discord.eventEmoji,
+            eventAmount: discord.eventAmount,
+          }),
+        );
+      } catch (error) {
+        log.warn(`>>> Discord status update failed: ${describeDiscordError(error)}`);
+      }
+      try {
+        await deps.eventRelay?.publish(snapshot.events);
+        await deps.auditRelay?.publish(snapshot.events);
+      } catch (error) {
+        log.warn(`>>> Discord event relay failed: ${describeDiscordError(error)}`);
+      }
       deps.presence?.publish(snapshot, cardState);
-      rearmTimer();
     } catch (error) {
+      // Snapshot collection itself failed - nothing could be published
       log.warn(`>>> Discord status update failed: ${describeDiscordError(error)}`);
     } finally {
+      // Interval changes apply even while Discord or the game API is down
+      rearmTimer();
       inFlight = false;
     }
   };
@@ -83,13 +95,14 @@ export async function startDiscordStatus(
     if (!inFlight && !stopped) currentTick = tick();
   };
 
-  log.info(
-    `>>> Discord status card enabled (${discord.mode} mode, update interval: ${discord.updateIntervalSeconds}s)`,
-  );
-  let intervalSeconds = deps.runtimeInterval?.() ?? discord.updateIntervalSeconds;
+  // Defensive floor: runtime getters already clamp to the mode minimums, this
+  // only guards against a zero/negative value ever reaching setInterval
+  const effectiveInterval = () => Math.max(5, deps.runtimeInterval?.() ?? discord.updateIntervalSeconds);
+  let intervalSeconds = effectiveInterval();
+  log.info(`>>> Discord status card enabled (${discord.mode} mode, update interval: ${intervalSeconds}s)`);
   let timer: ReturnType<typeof setInterval> | undefined;
   const rearmTimer = () => {
-    const next = deps.runtimeInterval?.() ?? discord.updateIntervalSeconds;
+    const next = effectiveInterval();
     if (next === intervalSeconds || stopped) return;
     intervalSeconds = next;
     if (timer !== undefined) clearInterval(timer);

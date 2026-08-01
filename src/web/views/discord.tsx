@@ -76,12 +76,15 @@ function TextRow({
 
 function IntervalRow({
   t,
+  idPrefix,
   value,
   placeholder,
   min,
   active,
 }: {
   t: (key: string) => string;
+  /** Both groups render an interval row on one page - the prefix keeps ids unique */
+  idPrefix: string;
   value: string;
   placeholder: string;
   min: number;
@@ -90,11 +93,13 @@ function IntervalRow({
   return (
     <tr>
       <td>
-        <label for="discord-interval">{t("settings.discord.interval")}</label>
+        <label for={`${idPrefix}-interval`}>
+          {t("settings.discord.interval")} (≥{min}s)
+        </label>
       </td>
       <td>
         <input
-          id="discord-interval"
+          id={`${idPrefix}-interval`}
           type="number"
           name="updateIntervalSeconds"
           value={value}
@@ -218,6 +223,7 @@ function BotGroup({
         />
         <IntervalRow
           t={t}
+          idPrefix="discord-bot"
           value={values.updateIntervalSeconds}
           placeholder={values.envUpdateIntervalSeconds}
           min={10}
@@ -273,6 +279,7 @@ function WebhookGroup({
         />
         <IntervalRow
           t={t}
+          idPrefix="discord-webhook"
           value={values.updateIntervalSeconds}
           placeholder={values.envUpdateIntervalSeconds}
           min={15}

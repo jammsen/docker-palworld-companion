@@ -86,7 +86,7 @@
   "settings.discord.statusChannel": "状态卡片频道 ID",
   "settings.discord.logsChannel": "日志频道 ID",
   "settings.discord.adminChannel": "管理频道 ID",
-  "settings.discord.interval": "更新间隔（秒，最小 10）",
+  "settings.discord.interval": "更新间隔（秒）",
   "settings.discord.presence": "显示机器人在线状态（含玩家数量）",
   "settings.discord.commands": "启用斜杠命令（需要重启）",
   "settings.discord.save": "保存 Discord 设置",
