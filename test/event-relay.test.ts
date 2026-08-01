@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { RestLike } from "../src/discord/bot-transport.js";
 import { EventRelay } from "../src/discord/event-relay.js";
 import { eventKey, type ServerEvent } from "../src/events.js";
 
@@ -12,7 +13,10 @@ const EVENTS: ServerEvent[] = [
 function makeRelay(post: ReturnType<typeof vi.fn>, initialCursor?: string) {
   let cursor = initialCursor;
   const relay = new EventRelay({
-    rest: { post, patch: vi.fn() },
+    // vitest 4 types vi.fn() as Mock<Procedure>, which no longer matches
+    // RestLike's template-literal route parameter - one cast in the helper
+    // keeps every call site's plain vi.fn() working
+    rest: { post, patch: vi.fn() } as unknown as RestLike,
     channelId: () => CHANNEL,
     eventEmoji: {},
     getCursor: () => cursor,
