@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS build
+FROM node:26-bookworm-slim@sha256:9e6f9357d371591e32ab6f2d8a26d63bdd0d17c29eee3f4f3e7e454d9634bf73 AS build
 
 WORKDIR /build
 
@@ -11,7 +11,7 @@ RUN npm run typecheck \
     && npm test \
     && npm run build
 
-FROM node:22-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
+FROM node:26-bookworm-slim@sha256:9e6f9357d371591e32ab6f2d8a26d63bdd0d17c29eee3f4f3e7e454d9634bf73
 
 LABEL maintainer="Sebastian Schmidt - https://github.com/jammsen/docker-palworld-companion"
 LABEL org.opencontainers.image.authors="Sebastian Schmidt"

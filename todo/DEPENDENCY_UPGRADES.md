@@ -11,6 +11,6 @@ Status as of 2026-07-26 (`npm audit`: 0 vulnerabilities). All versions in `packa
 
 The **base image major** (`node:22-bookworm-slim` -> newer) is a production-runtime change, not tooling. Rules:
 
-- Prefer an **LTS line**. Current state: Node 22 is Maintenance LTS (until 2027-04), Node 24 is Active LTS, Node 26 is Current (not LTS before 2026-10-28). Plan: stay on 22 and jump straight to 26 once it is LTS, skipping 24. Close/ignore Dependabot PRs that propose a non-LTS major for the image.
+- **Done 2026-08-01: on Node 26** (jumped from 22, skipping 24). 26 is Current until it becomes LTS on 2026-10-28 - decision: Current is a stable production line and the digest-pinned, fully-gated image build de-risks the early jump; nothing to do in October, the line rolls into LTS. Future majors: same pattern, jump to the next even major once comfortable, always as ONE coordinated PR.
 - When bumping, change **together in one PR**: the digest-pinned `FROM` lines in the Dockerfile, `node-version` in the CI workflows, and `@types/node` to the matching major.
 - `@types/node` running ahead of the runtime (e.g. 26.x types on the 22 image) is tolerated if it arrives via a batch - the typechecker just loses some too-new-API protection; tests and the smoke cover real usage.
