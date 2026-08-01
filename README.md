@@ -132,8 +132,8 @@ In short: create an application in the [Discord Developer Portal](https://discor
 
 The last-events log ships with proper icons out of the box (the `icons/modern-slate` set). To use another set - or your own icons:
 
-1. Pick a set from [`icons/`](icons/) (24 ready-made sets, 13 PNGs each).
-2. **Upload the 13 PNGs** to the Discord server your webhook lives in: Server Settings → Emoji → Upload Emoji.
+1. Pick a set from [`icons/`](icons/) (31 ready-made sets, 16 PNGs each) - the [side-by-side overview](icons/README.md) shows every set in one place, and each set directory has its own README with larger previews.
+2. **Upload the 16 PNGs** to the Discord server your webhook lives in: Server Settings → Emoji → Upload Emoji.
 3. **Get each token**: type the emoji with a leading backslash in any channel (e.g. `\:pal_join:`) and send - Discord prints the raw token like `<:pal_join:1234567890123456789>`.
 4. Set the matching `DISCORD_STATUS_EMOJI_EVENT_*` variables - see [docs/ENV_VARS.md](docs/ENV_VARS.md).
 
