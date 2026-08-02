@@ -145,7 +145,7 @@ export function parseConfig(env: Record<string, string | undefined>): CompanionC
 
   const envPort = (key: string, fallback: number): number => {
     const parsed = envInt(env[key], fallback);
-    if (parsed >= 1 && parsed <= 65535) return parsed;
+    if (parsed >= 1000 && parsed <= 65535) return parsed;
     warnings.push(`${key}=${env[key]} is not a valid port (1-65535) - using ${fallback}`);
     return fallback;
   };
