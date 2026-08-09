@@ -16,7 +16,7 @@
   "dependencies": {
     "@hono/node-server": "2.0.12",
     "discord.js": "14.27.0",
-    "hono": "4.12.33"
+    "hono": "4.13.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.6",
