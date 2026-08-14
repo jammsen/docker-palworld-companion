@@ -14,15 +14,15 @@
     "lint:fix": "biome check --write ."
   },
   "dependencies": {
-    "@hono/node-server": "2.0.12",
+    "@hono/node-server": "2.1.0",
     "discord.js": "14.27.0",
-    "hono": "4.12.33"
+    "hono": "4.13.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.6",
-    "@types/node": "26.1.2",
-    "esbuild": "0.28.1",
-    "tsx": "4.23.1",
+    "@biomejs/biome": "2.5.7",
+    "@types/node": "26.2.0",
+    "esbuild": "0.28.2",
+    "tsx": "4.23.12",
     "typescript": "7.0.2",
     "vitest": "4.1.10"
   }
